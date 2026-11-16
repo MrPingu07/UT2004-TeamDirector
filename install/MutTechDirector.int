@@ -1,0 +1,6 @@
+[Public]
+Object=(Name=MutTechDirector.MutTechDirector,Class=Class,MetaClass=Engine.Mutator,Description="Tournament Technical Director: a team support role with a locked fighter camera, tactical zoom, nanite healing and nine configurable transmat abilities. Works across TeamGame-derived gametypes.")
+
+[MutTechDirector.MutTechDirector]
+FriendlyName="Tournament Technical Director"
+Description="Turns one player per team into the Tournament Technical Director: a remote broadcast operator with a locked fighter feed, tactical zoom, nanite healing and nine configurable transmat abilities. Works in any TeamGame-derived gametype. K toggles the booth (5 second entry delay, instant exit). Cooldowns are editable from Configure Mutators."

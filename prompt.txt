@@ -1,0 +1,41 @@
+Act as a veteran UnrealScript developer specializing in UT2004 (community patch v3374) mutator architecture and replication. I want to build a universal, lightweight Mutator called "MutTechDirector" that works across ALL team-based gametypes (`TeamGame` and its subclasses: TDM, CTF, Onslaught, Assault, Bombing Run, Double Domination, cDOM... Let's try to account for every single sensible gamemode by being modular).
+
+### Lore & Thematic Framing
+The mod should feel 100% immersive to the Unreal Tournament 2004 universe. Instead of a generic spectator, the support player takes on the role of the team's **Tournament Technical Director** monitoring the live broadcast camera feed from the booth and authorizing real-time transmat logistics, medical nanite pulses, and vehicle requisitions for their fighters on the arena floor.
+
+Keep the technical scope minimal, functional, and rock-solid using a `Mutator`, `GameRules`, a custom `ReplicationInfo`, and a client-side `Interaction` (for canvas text rendering and telemetry).
+
+### 1. Role Assignment, Anti-Cheese Rules & Broadcast Camera Lock
+- Allow a player to toggle Technical Director Mode on their current team at will via a mutate command (`mutate director`) without despawning bots or breaking `TeamGame` roster counts.
+- Suppress/destroy the Director's physical `Pawn` upon entering the booth so they cannot take damage or feed kills, while keeping them registered on their `TeamInfo`. Exiting Director Mode respawns them normally through the gametype's standard spawn logic.
+- **Anti-Cheese Cooldown Rule:** Players can enter and exit Director Mode at any time, **but all ability cooldowns start fully uncharged (at their maximum cooldown duration) whenever a player enters Director Mode, and cooldown timers ONLY tick down while the player is actively in Director Mode.** Leaving the booth pauses progress so a player must commit to being off the battlefield to earn support drops.
+- Lock the Director's camera (`ViewTarget`) strictly to spectating living teammates in third-person behind-view (`bBehindView = true`). If their current target dies, wait 1 second and automatically cycle the broadcast feed to the next living teammate and trigger a subtle camera-switch sound cue.
+
+### 2. Camera Controls (Mouse Wheel & Zoom)
+- **Fighter Feed Switching:** Intercept `PrevWeapon` and `NextWeapon` (Mouse Wheel Up/Down) to cycle `ViewTarget` strictly through living teammates (`PRI.Team == PlayerController.PlayerReplicationInfo.Team` and `Pawn != None && Pawn.Health > 0`). Skip dead teammates awaiting respawn.
+- **Tactical Zoom:** Intercept `bFire` (Left Click) and `bAltFire` (Right Click) inside `PlayerTick` / camera calculation (`CalcBehindView` or `SpecialCalcView`) to smoothly zoom the camera closer (`bFire`) or pull it further out for an overhead tactical view (`bAltFire`) within clamped min/max distance bounds (e.g., 120 to 1500 Unreal units).
+
+### 3. Transmat Logistics & Abilities (Targeted at Active ViewTarget)
+- Hotbar actions (holding `Jump` plus keys `1` through `8`) deploy onto or safely offset near the currently spectated teammate's `Pawn` (`ViewTarget`), ensuring spawned actors never telefrag the player.
+- Operate via a **server-dictated per-slot cooldown system** tracked on `DirectorReplicationInfo`.
+- Trigger native UT2004 particle effects (e.g., `TransEffect` or `LinkSpark` emitters) and native sound cues (`Sound'WeaponSounds.BLinkGunBeam'` or `Sound'GameSounds.ComboActivated'`) on deployment so drops feel physical and immersive in-world:
+  - `Jump` (Hold): **Nanite Med-Surge** — Continuously heals 2 HP per second to the spectated fighter while held (`aUp > 0`), capped at their max health (or 199). No cooldown.
+  - `1`: **Ammunition Requisition** — Grants 1 standard ammo pack of every ammo type for the weapons held by the spectated fighter. *(30s cooldown)*
+  - `2`: **Perimeter Defense** — Deploys an AI-controlled floor sentinel turret (`UT2k4Assault.ASVehicle_Sentinel_Floor` or equivalent team-aligned turret) at a valid offset near the fighter. *(45s cooldown)*
+  - `3`: **Painkillers** — 300HP (Arbitrarily set the player health to 300HP once to the spectated fighter). *(30s cooldown)*
+  - `4`: **Blindage** — Grants a Super Shield (`SuperShieldPack`, +100 Shield) to the spectated fighter. *(30s cooldown)*
+  - `5`: **Stimuli Dose** — Activates Berserk (`ComboBerserk` or weapon fire-rate boost) on the spectated fighter. *(30s cooldown)*
+  - `6`: **Light Vehicle Transmat** — Authorizes a Cicada (`DynamicLoadObject("OnslaughtBP.ONSDualAttackCraft", class'Class')` with fallback to `Onslaught.ONSAttackCraft` Raptor) in an open spot near the fighter after running a `FastTrace` / cylinder clearance check; prints `'Not enough space'` to the Director if obstructed. *(60s cooldown)*
+  - `7`: **Heavy Asset Drop** — Authorizes a Goliath tank (`Onslaught.ONSHoverTank`) near the fighter if cylinder/terrain clearance passes, or prints `'Not enough space'` and refunds the cooldown if obstructed. *(90s cooldown)*
+  - `8`: **Emergency Recall** — Teleports ALL living teammates on the Director's team back to their team's Flag Base (`FlagBase`), Main PowerCore (`ONSPowerCore`), or a fallback `TeamPlayerStart`, spacing them out with horizontal/vertical clearance checks (`FindSpot` / cylinder trace) in relation to both actor and world geometry so teammates never telefrag one another. *(120s cooldown)*
+
+### 4. Minimalist Plain-Text Telemetry HUD (`Interaction`)
+- Do NOT override the gametype's native `HUD` class. Inject a client-side `Interaction` (`PostRender`) that renders ONLY clean, plain-text telemetry (`Canvas.DrawText`) when in Director Mode:
+  - **Lower-Left Corner (Transmat Logistics Hotbar):** Plain-text readout listing `Jump` (Nanite Beam) and keys `1–8` with their live cooldown status (`[READY]` in green or `[24s]` in yellow/red).
+  - **Lower-Right Corner (Booth Controls Cheatsheet):** Plain-text control guide (`[Wheel] Cycle Fighter Feed | [Hold Fire/AltFire] Zoom Cam | [Hold Jump] Heal | [1-8] Transmat Drop | [mutate director] Leave Booth`).
+  - **Live Fighter Telemetry (Always-Visible Nameplates):** Loop through all friendly living `Pawn`s in `PostRender`, project their head position (`Location + vect(0,0,60)`) using `Canvas.WorldToScreen()`, and draw their Name, Health, and Shield values above their head at all times (visible through walls, no `FastTrace` occlusion).
+
+Provide the complete, compilable UnrealScript classes (`MutTechDirector`, `DirectorRules`, `DirectorReplicationInfo`, and `DirectorInteraction`) ready to compile with `ucc make` in UT2004 v3374.
+There's a working copy of the game in "/home/jdmr/Juegos/UT2004"
+Document Thoroughly and verbosely philosophy, findings, approach, readme, roadmap and relevant context.
+Try not to break my game; try to work in temporary directories if foreseed to modify a core file if possible so as to not break my game install.
