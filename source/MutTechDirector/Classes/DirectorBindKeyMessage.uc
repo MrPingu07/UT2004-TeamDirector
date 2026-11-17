@@ -7,13 +7,13 @@
 // client-owned actor, but LocalMessage.ClientReceive is executed on the
 // receiving machine by the reliable PlayerController.ReceiveLocalizedMessage.
 // MutTechDirector.ModifyPlayer() sends this message on every spawn, so each
-// client (and the host) binds K -> "mutate director" into its own input
+// client (and the host) binds N -> "mutate director" into its own input
 // config without replacing PlayerControllerClass and without touching any
 // other mutator's controller (GTAThirdPerson stays fully compatible).
 //
 // Binds are written exactly the way the stock GUI does it:
-//   read  : ConsoleCommand("KEYBINDING K")
-//   write : ConsoleCommand("set Input K mutate director")
+//   read  : ConsoleCommand("KEYBINDING N")
+//   write : ConsoleCommand("set Input N mutate director")
 //=============================================================================
 class DirectorBindKeyMessage extends LocalMessage;
 
@@ -51,12 +51,12 @@ static function ClientReceive(
     if (P == None)
         return;
 
-    Cur = P.ConsoleCommand("KEYBINDING K");
+    Cur = P.ConsoleCommand("KEYBINDING N");
     if (Cur ~= "mutate director")
         return;
 
-    P.ConsoleCommand("set Input K mutate director");
-    Log("MutTechDirector: bound K -> mutate director on client (was '" $ Cur $ "')");
+    P.ConsoleCommand("set Input N mutate director");
+    Log("MutTechDirector: bound N -> mutate director on client (was '" $ Cur $ "')");
 }
 
 defaultproperties

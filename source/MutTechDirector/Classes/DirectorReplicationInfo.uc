@@ -54,6 +54,9 @@ var Pawn CurrentTarget;
 var int TeamAlive;
 var int TeamDead;
 
+/** Replicated list of friendly turrets (DirectorSentinels) for beacon display. */
+var Pawn TeamTurrets[16];
+
 /** Server-configured cooldown ceiling per slot, replicated from the mutator. */
 var float MaxCooldowns[9];
 
@@ -90,6 +93,9 @@ var float BerserkTime;
 /** Accumulator for the 0.5 s roster recount. */
 var float TeamAccum;
 
+/** Accumulator for the 2 s turret list refresh. */
+var float TurretAccum;
+
 /** True while the 5 s entry delay is running; the booth is not online yet. */
 var bool bBoothPending;
 
@@ -118,9 +124,9 @@ replication
     // Server -> owning client: live telemetry used by the HUD and camera.
     reliable if (Role == ROLE_Authority)
         DirectorPC, DirectorTeam, bDirectorActive, bHealing, CurrentTarget,
-        TeamAlive, TeamDead, MaxCooldowns;
+        TeamAlive, TeamDead, MaxCooldowns, TeamTurrets;
 
-    reliable if (Role == ROLE_Authority)
+    reliable if (Role == ROLE_AuthorITY)
         Cooldown1, Cooldown2, Cooldown3, Cooldown4,
         Cooldown5, Cooldown6, Cooldown7, Cooldown8,
         Cooldown9;
@@ -276,6 +282,7 @@ function BeginEntryCountdown(MutTechDirector M, PlayerController PC, byte Team,
     BerserkPawn = None;
     BerserkTime = 0.0;
     TeamAccum = 0.0;
+    TurretAccum = 0.0;
     TeamAlive = 0;
     TeamDead = 0;
     CopyCooldownSettings(M);
@@ -304,14 +311,51 @@ function CopyCooldownSettings(MutTechDirector M)
 function ActivateBooth()
 {
     bBoothPending = False;
-    EntryTimeLeft = 0.0;
     bDirectorActive = True;
-    bHealing = False;
-    bPendingCycle = False;
-    HealAccum = 0.0;
-    TeamAccum = 0.0;
-    UpdateTeamCounts();
-    ResetCooldowns();
+    RefreshTurretList();
+}
+
+/** Refresh the replicated list of friendly turrets for beacon display. */
+function RefreshTurretList()
+{
+    local DirectorSentinel T;
+    local int i;
+
+    if (Role < ROLE_Authority)
+        return;
+
+    i = 0;
+
+    foreach AllActors(class'DirectorSentinel', T)
+    {
+        if (T == None || T.Health <= 0)
+            continue;
+        if (T.GetTeamNum() != DirectorTeam)
+            continue;
+        if (i < 16)
+        {
+            TeamTurrets[i] = T;
+            i++;
+        }
+    }
+
+    // Clear remaining slots
+    while (i < 16)
+    {
+        TeamTurrets[i] = None;
+        i++;
+    }
+
+    // Also update the mutator's replicated array for field players
+    if (DirectorMutator != None)
+        DirectorMutator.RefreshTeamTurrets(TeamTurrets);
+}
+
+/** Called by mutator when a turret is deployed or destroyed. */
+function OnTurretChange()
+{
+    if (Role == ROLE_Authority)
+        RefreshTurretList();
 }
 
 /** Drop a pending entry without ever opening the booth. */
@@ -516,6 +560,8 @@ function ServerLeaveDirector()
 event Tick(float DeltaTime)
 {
     local Pawn Next;
+    local float HealRate;
+    local float PulseInterval;
 
     Super.Tick(DeltaTime);
 
@@ -570,6 +616,14 @@ event Tick(float DeltaTime)
         UpdateTeamCounts();
     }
 
+    // Turret list refresh for beacon display.  Every 2 seconds is plenty.
+    TurretAccum += DeltaTime;
+    if (TurretAccum >= 2.0)
+    {
+        TurretAccum = 0.0;
+        RefreshTurretList();
+    }
+
     // Cooldowns only move while the booth is occupied.  Because the RI is
     // destroyed on exit and recreated with ResetCooldowns() on entry, leaving
     // the booth can never bank progress.
@@ -583,15 +637,26 @@ event Tick(float DeltaTime)
     if (Cooldown8 > 0.0) Cooldown8 = FMax(0.0, Cooldown8 - DeltaTime);
     if (Cooldown9 > 0.0) Cooldown9 = FMax(0.0, Cooldown9 - DeltaTime);
 
-    // Nanite Med-Surge: 2 HP/sec, applied in half-second one-HP pulses so the
+    // Nanite Med-Surge: configurable HP/sec (default 2), applied in pulses so the
     // displayed health changes smoothly without a per-frame network storm.
-    if (bHealing && CurrentTarget != None && CurrentTarget.Health > 0)
+    // Pulse interval = 1.0 / NaniteHealRate (e.g., 2 HP/sec -> 0.5s pulse).
+    if (bHealing && CurrentTarget != None && CurrentTarget.Health > 0 && DirectorMutator != None)
     {
-        HealAccum += DeltaTime;
-        while (HealAccum >= 0.5)
+        HealRate = DirectorMutator.NaniteHealRate;
+        if (HealRate <= 0.0)
+            HealRate = 0.0;
+        else if (HealRate > 199.0)
+            HealRate = 199.0;
+
+        if (HealRate > 0.0)
         {
-            HealAccum -= 0.5;
-            HealTargetOnePoint();
+            PulseInterval = 1.0 / HealRate;
+            HealAccum += DeltaTime;
+            while (HealAccum >= PulseInterval)
+            {
+                HealAccum -= PulseInterval;
+                HealTargetOnePoint();
+            }
         }
     }
     else
@@ -821,7 +886,7 @@ simulated function ClientCloseBooth(optional string NotifyText)
 defaultproperties
 {
     bAlwaysRelevant=False
-    bOnlyRelevantToOwner=True
+    bOnlyRelevantToOwner=False
     RemoteRole=ROLE_SimulatedProxy
     NetUpdateFrequency=10.000000
     bAlwaysTick=True

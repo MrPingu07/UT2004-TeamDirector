@@ -8,21 +8,22 @@
 //=============================================================================
 class MutTechDirectorConfig extends GUIPage;
 
-var moEditBox Box1, Box2, Box3, Box4, Box5, Box6, Box7, Box8, Box9;
+var moEditBox Box1, Box2, Box3, Box4, Box5, Box6, Box7, Box8, Box9, Box10;
 
 function InitComponent(GUIController MyController, GUIComponent MyOwner)
 {
     Super.InitComponent(MyController, MyOwner);
 
-    Box1 = moEditBox(Controls[4]);
-    Box2 = moEditBox(Controls[5]);
-    Box3 = moEditBox(Controls[6]);
-    Box4 = moEditBox(Controls[7]);
-    Box5 = moEditBox(Controls[8]);
-    Box6 = moEditBox(Controls[9]);
-    Box7 = moEditBox(Controls[10]);
-    Box8 = moEditBox(Controls[11]);
-    Box9 = moEditBox(Controls[12]);
+    Box1 = moEditBox(Controls[5]);
+    Box2 = moEditBox(Controls[6]);
+    Box3 = moEditBox(Controls[7]);
+    Box4 = moEditBox(Controls[8]);
+    Box5 = moEditBox(Controls[9]);
+    Box6 = moEditBox(Controls[10]);
+    Box7 = moEditBox(Controls[11]);
+    Box8 = moEditBox(Controls[12]);
+    Box9 = moEditBox(Controls[13]);
+    Box10 = moEditBox(Controls[14]);
 
     Box1.SetText(string(class'MutTechDirector'.default.Cooldown1));
     Box2.SetText(string(class'MutTechDirector'.default.Cooldown2));
@@ -33,6 +34,7 @@ function InitComponent(GUIController MyController, GUIComponent MyOwner)
     Box7.SetText(string(class'MutTechDirector'.default.Cooldown7));
     Box8.SetText(string(class'MutTechDirector'.default.Cooldown8));
     Box9.SetText(string(class'MutTechDirector'.default.Cooldown9));
+    Box10.SetText(string(class'MutTechDirector'.default.NaniteHealRate));
 }
 
 function bool InternalOnClick(GUIComponent Sender)
@@ -46,6 +48,7 @@ function bool InternalOnClick(GUIComponent Sender)
     class'MutTechDirector'.default.Cooldown7 = ClampValue(Box7);
     class'MutTechDirector'.default.Cooldown8 = ClampValue(Box8);
     class'MutTechDirector'.default.Cooldown9 = ClampValue(Box9);
+    class'MutTechDirector'.default.NaniteHealRate = ClampHealRate(Box10);
     class'MutTechDirector'.static.StaticSaveConfig();
 
     Controller.CloseMenu(False);
@@ -70,6 +73,24 @@ function float ClampValue(moEditBox Box)
     return V;
 }
 
+/** Sanity: 0.00 - 199.00 HP/sec for Nanite Med-Surge. */
+function float ClampHealRate(moEditBox Box)
+{
+    local float V;
+
+    if (Box == None)
+        return 2.0;
+
+    V = float(Box.GetText());
+    if (V < 0.0)
+        V = 0.0;
+    if (V > 199.0)
+        V = 199.0;
+
+    Box.SetText(string(V));
+    return V;
+}
+
 function bool ResetToDefaults(GUIComponent Sender)
 {
     Box1.SetText("1.0");
@@ -81,6 +102,7 @@ function bool ResetToDefaults(GUIComponent Sender)
     Box7.SetText("1.0");
     Box8.SetText("1.0");
     Box9.SetText("1.0");
+    Box10.SetText("2.0");
     return True;
 }
 
@@ -136,6 +158,19 @@ defaultproperties
     End Object
     Controls(3)=GUILabel'DialogText2'
 
+    Begin Object Class=GUILabel Name=DialogText3
+        Caption="Nanite Med-Surge heal rate: 0.00 - 199.00 HP/s"
+        TextAlign=TXTA_Center
+        TextColor=(R=220,G=180,B=0,A=255)
+        TextFont="UT2MenuFont"
+        WinWidth=1.000000
+        WinHeight=20.000000
+        WinLeft=0.000000
+        WinTop=0.25
+        bBoundToParent=true
+    End Object
+    Controls(4)=GUILabel'DialogText3'
+
     Begin Object Class=moEditBox Name=BoxSlot1
         WinWidth=0.4
         WinHeight=0.04
@@ -145,7 +180,7 @@ defaultproperties
         bReadOnly=false
         bBoundToParent=true
     End Object
-    Controls(4)=moEditBox'BoxSlot1'
+    Controls(5)=moEditBox'BoxSlot1'
 
     Begin Object Class=moEditBox Name=BoxSlot2
         WinWidth=0.4
@@ -156,7 +191,7 @@ defaultproperties
         bReadOnly=false
         bBoundToParent=true
     End Object
-    Controls(5)=moEditBox'BoxSlot2'
+    Controls(6)=moEditBox'BoxSlot2'
 
     Begin Object Class=moEditBox Name=BoxSlot3
         WinWidth=0.4
@@ -167,7 +202,7 @@ defaultproperties
         bReadOnly=false
         bBoundToParent=true
     End Object
-    Controls(6)=moEditBox'BoxSlot3'
+    Controls(7)=moEditBox'BoxSlot3'
 
     Begin Object Class=moEditBox Name=BoxSlot4
         WinWidth=0.4
@@ -178,7 +213,7 @@ defaultproperties
         bReadOnly=false
         bBoundToParent=true
     End Object
-    Controls(7)=moEditBox'BoxSlot4'
+    Controls(8)=moEditBox'BoxSlot4'
 
     Begin Object Class=moEditBox Name=BoxSlot5
         WinWidth=0.4
@@ -189,7 +224,7 @@ defaultproperties
         bReadOnly=false
         bBoundToParent=true
     End Object
-    Controls(8)=moEditBox'BoxSlot5'
+    Controls(9)=moEditBox'BoxSlot5'
 
     Begin Object Class=moEditBox Name=BoxSlot6
         WinWidth=0.4
@@ -200,7 +235,7 @@ defaultproperties
         bReadOnly=false
         bBoundToParent=true
     End Object
-    Controls(9)=moEditBox'BoxSlot6'
+    Controls(10)=moEditBox'BoxSlot6'
 
     Begin Object Class=moEditBox Name=BoxSlot7
         WinWidth=0.4
@@ -211,7 +246,7 @@ defaultproperties
         bReadOnly=false
         bBoundToParent=true
     End Object
-    Controls(10)=moEditBox'BoxSlot7'
+    Controls(11)=moEditBox'BoxSlot7'
 
     Begin Object Class=moEditBox Name=BoxSlot8
         WinWidth=0.4
@@ -222,7 +257,7 @@ defaultproperties
         bReadOnly=false
         bBoundToParent=true
     End Object
-    Controls(11)=moEditBox'BoxSlot8'
+    Controls(12)=moEditBox'BoxSlot8'
 
     Begin Object Class=moEditBox Name=BoxSlot9
         WinWidth=0.4
@@ -233,7 +268,18 @@ defaultproperties
         bReadOnly=false
         bBoundToParent=true
     End Object
-    Controls(12)=moEditBox'BoxSlot9'
+    Controls(13)=moEditBox'BoxSlot9'
+
+    Begin Object Class=moEditBox Name=BoxSlot10
+        WinWidth=0.4
+        WinHeight=0.04
+        WinLeft=0.55
+        WinTop=0.7
+        Caption="Nanite Heal Rate (HP/s)"
+        bReadOnly=false
+        bBoundToParent=true
+    End Object
+    Controls(14)=moEditBox'BoxSlot10'
 
     Begin Object Class=GUIButton Name=ResetButton
         Caption="Reset to Defaults"
@@ -244,7 +290,7 @@ defaultproperties
         OnClick=ResetToDefaults
         bBoundToParent=true
     End Object
-    Controls(13)=GUIButton'ResetButton'
+    Controls(15)=GUIButton'ResetButton'
 
     WinLeft=0
     WinTop=0.2

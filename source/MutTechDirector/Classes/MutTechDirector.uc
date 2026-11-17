@@ -43,12 +43,24 @@ var() config float Cooldown7;
 var() config float Cooldown8;
 var() config float Cooldown9;
 
+/** Nanite Med-Surge healing rate in HP per second (0.00 - 199.00). */
+var() config float NaniteHealRate;
+
 // ---------------------------------------------------------------------------
 // Bookkeeping
 // ---------------------------------------------------------------------------
 
 /** Live booth records.  Entries are removed on exit/logout. */
 var array<DirectorReplicationInfo> Directors;
+
+/** Replicated list of friendly turrets for beacon display (all team members). */
+var Pawn TeamTurrets[16];
+
+replication
+{
+    reliable if (Role == ROLE_Authority)
+        TeamTurrets;
+}
 
 /** Mandatory delay before the booth can open.  Exiting is instant. */
 const TD_ENTRY_DELAY = 5.0;
@@ -94,8 +106,93 @@ function Mutate(string MutateString, PlayerController Sender)
         return;
     }
 
+    if (MutateString ~= "testbeacons")
+    {
+        if (Sender != None && Sender.PlayerReplicationInfo != None)
+        {
+            EnableTestBeacons(Sender);
+            return;
+        }
+    }
+
+    if (MutateString ~= "testbeaconsoff")
+    {
+        if (Sender != None && Sender.PlayerReplicationInfo != None)
+        {
+            DisableTestBeacons(Sender);
+            return;
+        }
+    }
+
     if (NextMutator != None)
         NextMutator.Mutate(MutateString, Sender);
+}
+
+/** Debug: create a fake test Director for the sender's team to enable beacon rendering. */
+function EnableTestBeacons(PlayerController PC)
+{
+    local DirectorReplicationInfo RI;
+    local int i;
+
+    if (PC == None || PC.PlayerReplicationInfo == None)
+        return;
+
+    // Remove any existing test Director for this team
+    for (i = 0; i < Directors.Length; i++)
+    {
+        if (Directors[i] != None && Directors[i].DirectorTeam == PC.PlayerReplicationInfo.Team.TeamIndex &&
+            Directors[i].DirectorPC == None) // test Director has no PC
+        {
+            Directors[i].Destroy();
+            Directors.Remove(i, 1);
+            break;
+        }
+    }
+
+    // Create a test DirectorReplicationInfo (server-side only, no PC)
+    RI = Spawn(class'DirectorReplicationInfo');
+    if (RI != None)
+    {
+        RI.DirectorTeam = PC.PlayerReplicationInfo.Team.TeamIndex;
+        RI.bDirectorActive = True;
+        RI.DirectorPC = None; // test Director has no real PC
+        RI.DirectorMutator = Self;
+        RI.RefreshTurretList();
+        Directors[Directors.Length] = RI;
+
+        // Send beacon message to all team members (including sender if not Director)
+        AttachTurretBeaconsToTeam(RI.DirectorTeam, RI);
+
+        Log("MutTechDirector: Test beacons ENABLED for team " $ RI.DirectorTeam);
+        if (PC != None)
+            PC.ClientMessage("Test beacon mode enabled for your team. Deploy a turret (Slot 2) to see it.");
+    }
+}
+
+/** Debug: remove test Director and disable beacon rendering for team. */
+function DisableTestBeacons(PlayerController PC)
+{
+    local int i;
+    local DirectorReplicationInfo RI;
+
+    if (PC == None || PC.PlayerReplicationInfo == None)
+        return;
+
+    for (i = 0; i < Directors.Length; i++)
+    {
+        RI = Directors[i];
+        if (RI != None && RI.DirectorTeam == PC.PlayerReplicationInfo.Team.TeamIndex &&
+            RI.DirectorPC == None)
+        {
+            RI.bDirectorActive = False;
+            RI.Destroy();
+            Directors.Remove(i, 1);
+            Log("MutTechDirector: Test beacons DISABLED for team " $ PC.PlayerReplicationInfo.Team.TeamIndex);
+            if (PC != None)
+                PC.ClientMessage("Test beacon mode disabled.");
+            break;
+        }
+    }
 }
 
 /**
@@ -109,6 +206,7 @@ function Mutate(string MutateString, PlayerController Sender)
 function ModifyPlayer(Pawn Other)
 {
     local PlayerController PC;
+    local DirectorReplicationInfo RI;
 
     if (Other != None)
         PC = PlayerController(Other.Controller);
@@ -117,6 +215,20 @@ function ModifyPlayer(Pawn Other)
         !PC.PlayerReplicationInfo.bOnlySpectator))
     {
         PC.ReceiveLocalizedMessage(class'DirectorBindKeyMessage', 0);
+
+        // Attach turret beacon interaction via LocalMessage so it runs on the CLIENT
+        // and can access the replicated mutator (TeamTurrets array)
+        RI = FindTeamDirectorRI(PC.PlayerReplicationInfo.Team.TeamIndex);
+        Log("MutTechDirector: ModifyPlayer - PC=" $ PC $ ", Team=" $ PC.PlayerReplicationInfo.Team.TeamIndex $ ", RI=" $ RI);
+        if (RI != None)
+        {
+            Log("MutTechDirector: ModifyPlayer - RI.bDirectorActive=" $ RI.bDirectorActive $ ", PC=" $ PC $ ", RI.DirectorPC=" $ RI.DirectorPC);
+        }
+        if (RI != None && RI.bDirectorActive && PC != RI.DirectorPC)
+        {
+            Log("MutTechDirector: ModifyPlayer - sending DirectorTurretBeaconMessage to " $ PC);
+            PC.ReceiveLocalizedMessage(class'DirectorTurretBeaconMessage', 0);
+        }
     }
 
     Super.ModifyPlayer(Other);
@@ -202,6 +314,21 @@ function DirectorReplicationInfo FindDirectorRI(PlayerController PC)
     for (i = 0; i < Directors.Length; i++)
     {
         if (Directors[i] != None && Directors[i].DirectorPC == PC)
+            return Directors[i];
+    }
+
+    return None;
+}
+
+/** Find the active Director RI for a specific team. */
+function DirectorReplicationInfo FindTeamDirectorRI(byte Team)
+{
+    local int i;
+
+    for (i = 0; i < Directors.Length; i++)
+    {
+        if (Directors[i] != None && Directors[i].bDirectorActive &&
+            Directors[i].DirectorTeam == Team)
             return Directors[i];
     }
 
@@ -306,10 +433,52 @@ function CompleteEntry(DirectorReplicationInfo RI)
     Initial = FindTeammate(PC, None, 1);
     RI.SetTarget(Initial);
 
+    // Attach turret beacon interactions to all team members (except the Director)
+    AttachTurretBeaconsToTeam(RI.DirectorTeam, RI);
+
     if (Initial == None)
         Notify(RI, "Technical Director online. No living teammates on the feed.");
     else
         Notify(RI, "Technical Director online. Broadcast feed locked to " $ Initial.PlayerReplicationInfo.PlayerName $ ".");
+}
+
+/** Attach turret beacon interaction to all players on the given team (except the Director). */
+function AttachTurretBeaconsToTeam(byte Team, DirectorReplicationInfo RI)
+{
+    local PlayerController PC;
+
+    Log("MutTechDirector: AttachTurretBeaconsToTeam called for team " $ Team);
+
+    foreach AllActors(class'PlayerController', PC)
+    {
+        if (PC == None || PC.Pawn == None)
+            continue;
+        if (PC.PlayerReplicationInfo == None ||
+            PC.PlayerReplicationInfo.Team == None ||
+            PC.PlayerReplicationInfo.Team.TeamIndex != Team)
+            continue;
+        if (PC == RI.DirectorPC)
+            continue;
+        if (PC.PlayerReplicationInfo.bOnlySpectator)
+            continue;
+
+        Log("MutTechDirector: AttachTurretBeaconsToTeam - sending DirectorTurretBeaconMessage to " $ PC);
+        PC.ReceiveLocalizedMessage(class'DirectorTurretBeaconMessage', 0);
+    }
+}
+
+/** Update the replicated turret list for field player beacon display. */
+function RefreshTeamTurrets(Pawn SourceTurrets[16])
+{
+    local int i;
+
+    if (Role < ROLE_Authority)
+        return;
+
+    for (i = 0; i < 16; i++)
+    {
+        TeamTurrets[i] = SourceTurrets[i];
+    }
 }
 
 function ExitDirectorMode(DirectorReplicationInfo RI)
@@ -670,6 +839,11 @@ function bool DeploySentinel(Pawn P, byte Team, optional DirectorReplicationInfo
     log("MutTechDirector: DeploySentinel deployed walk-through turret Spot=" $ Spot);
 
     DeployFX(Spot, Team, 1);
+
+    // Update turret list for beacon display
+    if (RI != None)
+        RI.OnTurretChange();
+
     return True;
 }
 
@@ -841,6 +1015,11 @@ function bool RecallTeam(DirectorReplicationInfo RI)
             continue;
         if (C.PlayerReplicationInfo == None ||
             C.PlayerReplicationInfo.Team != RI.DirectorPC.PlayerReplicationInfo.Team)
+            continue;
+
+        // The flag carrier (CTF) or ball carrier (BR) is too important to
+        // recall: they must finish their run.
+        if (C.PlayerReplicationInfo.HasFlag != None)
             continue;
 
         TeamPawns[TeamPawns.Length] = C.Pawn;
@@ -1274,7 +1453,7 @@ function DeployFX(vector Loc, byte Team, int Kind)
 defaultproperties
 {
     FriendlyName="Tournament Technical Director"
-    Description="Turns one player per team into the Tournament Technical Director: a remote broadcast operator with a locked fighter feed, tactical zoom, nanite healing and nine configurable transmat abilities. Press K to enter (5 second delay) or leave instantly. Works in any TeamGame-derived gametype."
+    Description="Turns one player per team into the Tournament Technical Director: a remote broadcast operator with a locked fighter feed, tactical zoom, nanite healing and nine configurable transmat abilities. Press N to enter (5 second delay) or leave instantly. Works in any TeamGame-derived gametype."
     GroupName="MutTechDirector"
     bAddToServerPackages=True
 
@@ -1290,4 +1469,5 @@ defaultproperties
     Cooldown7=1.000000
     Cooldown8=1.000000
     Cooldown9=1.000000
+    NaniteHealRate=2.000000
 }
