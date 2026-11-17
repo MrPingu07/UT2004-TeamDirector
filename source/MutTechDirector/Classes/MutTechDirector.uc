@@ -1181,6 +1181,9 @@ function bool RecallTeam(DirectorReplicationInfo RI)
     local vector BaseLoc;
     local string HomeName;
     local vector Dest;
+    local vector GroupDest;
+    local array<vector> UsedSpots;
+    local array<vector> NoSpots;
     local int i;
     local bool bAny;
 
@@ -1219,18 +1222,17 @@ function bool RecallTeam(DirectorReplicationInfo RI)
 
     log("MutTechDirector: RecallTeam home=" $ HomeName $ " BaseLoc=" $ BaseLoc);
 
-    // Emergency recall is a regroup: put the whole team on ONE safe landing
-    // spot.  Stacked teammates would normally shove each other out of the
-    // spot, so every recalled pawn is made collision-transparent for 3 s
-    // (GrantRecallPass) before it is moved.  Priority is that the recall
-    // always succeeds, not that everyone gets a separate tile.
-    if (!FindRecallSpot(BaseLoc, TeamPawns[0], 0, TeamPawns.Length, Dest))
+    // Preferred behaviour: one distinct landing spot per teammate.  Only if
+    // the ring has no free spot left do we reuse the group fallback, in which
+    // case two or more pawns land on the same point and rely on the 3 s
+    // collision transparency to step apart.
+    if (!FindRecallSpot(BaseLoc, TeamPawns[0], 0, TeamPawns.Length, GroupDest, NoSpots))
     {
-        Dest = BaseLoc;
-        Dest.Z = Dest.Z + FMax(48.0, TeamPawns[0].CollisionHeight) + 16.0;
-        log("MutTechDirector: RecallTeam no traced spot; using home fallback " $ Dest);
+        GroupDest = BaseLoc;
+        GroupDest.Z = GroupDest.Z + FMax(48.0, TeamPawns[0].CollisionHeight) + 16.0;
+        log("MutTechDirector: RecallTeam no traced spot; using home fallback " $ GroupDest);
     }
-    log("MutTechDirector: RecallTeam group destination=" $ Dest);
+    log("MutTechDirector: RecallTeam group fallback=" $ GroupDest);
 
     for (i = 0; i < TeamPawns.Length; i++)
     {
@@ -1238,7 +1240,20 @@ function bool RecallTeam(DirectorReplicationInfo RI)
         if (P == None || P.Health <= 0)
             continue;
 
-        // Drop actor collision BEFORE moving so a stacked landing cannot be
+        // Find a spot not already given to another recalled teammate.  If the
+        // search is exhausted, fall back to the shared group point.
+        if (FindRecallSpot(BaseLoc, P, i, TeamPawns.Length, Dest, UsedSpots))
+        {
+            UsedSpots[UsedSpots.Length] = Dest;
+            log("MutTechDirector: RecallTeam assigned distinct spot " $ Dest $ " to " $ P);
+        }
+        else
+        {
+            Dest = GroupDest;
+            log("MutTechDirector: RecallTeam no free spot left; sharing group point " $ Dest $ " with " $ P);
+        }
+
+        // Drop actor collision BEFORE moving so a shared landing cannot be
         // rejected or push a teammate out of the destination.
         GrantRecallPass(P);
 
@@ -1341,8 +1356,22 @@ function bool FindHomeLocation(byte Team, out vector BaseLoc, out string HomeNam
     return False;
 }
 
+/** True when Spot is too close to a spot already assigned in this recall. */
+function bool RecallSpotTaken(vector Spot, array<vector> Taken, float MinDist)
+{
+    local int i;
+
+    for (i = 0; i < Taken.Length; i++)
+    {
+        if (VSize(Spot - Taken[i]) < MinDist)
+            return True;
+    }
+
+    return False;
+}
+
 function bool FindRecallSpot(vector BaseLoc, Pawn P, int Index, int Count,
-    out vector Result)
+    out vector Result, array<vector> Taken)
 {
     local int Attempt;
     local float Angle;
@@ -1353,6 +1382,7 @@ function bool FindRecallSpot(vector BaseLoc, Pawn P, int Index, int Count,
     local Actor Hit;
     local float PawnRadius;
     local float PawnHeight;
+    local float MinDist;
     local vector Extent;
 
     if (P == None)
@@ -1360,6 +1390,7 @@ function bool FindRecallSpot(vector BaseLoc, Pawn P, int Index, int Count,
 
     PawnRadius = FMax(24.0, P.CollisionRadius);
     PawnHeight = FMax(48.0, P.CollisionHeight);
+    MinDist = FMax(64.0, PawnRadius * 2.0 + 16.0);
 
     // Simple ring around the base location, up to 3 rings with 6 positions each
     for (Attempt = 0; Attempt < 18; Attempt++)
@@ -1382,6 +1413,8 @@ function bool FindRecallSpot(vector BaseLoc, Pawn P, int Index, int Count,
 
         Result = HitLoc;
         Result.Z = Result.Z + PawnHeight + 16.0;
+        if (RecallSpotTaken(Result, Taken, MinDist))
+            continue;
         if (SpotIsFree(Result, P, PawnRadius, PawnHeight))
             return True;
     }
@@ -1389,7 +1422,8 @@ function bool FindRecallSpot(vector BaseLoc, Pawn P, int Index, int Count,
     // Last resort: the base location itself
     Result = BaseLoc;
     Result.Z = Result.Z + PawnHeight + 16.0;
-    if (SpotIsFree(Result, P, PawnRadius, PawnHeight))
+    if (!RecallSpotTaken(Result, Taken, MinDist) &&
+        SpotIsFree(Result, P, PawnRadius, PawnHeight))
         return True;
 
     return False;

@@ -395,14 +395,16 @@ returns early, so the cooldown is not consumed.
   2. `ONSPowerCore` with `DefenderTeamIndex == team`, preferring `bFinalCore`;
   3. `PlayerStart.TeamNumber == team`;
   4. neutral/default start.
-- Find **one** group landing spot around the anchor (18 ring candidates plus
-  an anchor fallback), then move every recalled teammate to that same spot.
-  Priority is that the recall always succeeds; stacked teammates are fine.
+- Find **one group fallback** landing spot around the anchor (18 ring candidates
+  plus an anchor fallback). Each teammate first gets its own distinct spot from
+  the same ring search, skipping spots already assigned in this recall. Only
+  when no free spot remains does that pawn reuse the group fallback, so two or
+  more players share a point and rely on collision transparency to step apart.
 - Before moving each pawn, `GrantRecallPass()` stores its collision state and
   disables collision (`SetCollision(False, False)`), then `FinishRecallPassMove()`
   restores trace/projectile collision immediately but keeps pawn blocking off.
-  For 3 seconds the recalled group is collision-transparent to each other, so
-  they can step apart. `MutTechDirector.Tick` restores the saved collision
+  For 3 seconds **every** recalled pawn is collision-transparent, whether it
+  landed alone or stacked. `MutTechDirector.Tick` restores the saved collision
   flags when the window expires.
 - `SetLocation`, zero velocity, `SetPhysics(PHYS_Falling)` for non-vehicles,
   `PlayTeleportEffect(False, True)`.

@@ -143,7 +143,7 @@ server via **Configure Mutators** (`Cooldown1..9`).
 | 6 | SPMA Artillery | `OnslaughtBP.ONSArtillery` dropped at the fighter's feet |
 | 7 | Light Vehicle Transmat | `OnslaughtBP.ONSDualAttackCraft`, falling back to `Onslaught.ONSAttackCraft` |
 | 8 | Heavy Asset Drop | `Onslaught.ONSHoverTank` |
-| 9 | Emergency Recall | Teleports all living teammates to the team Flag Base, main Power Core, or team spawn. The whole team lands on one spot and gets 3 s of collision transparency so nobody is shoved out of the regroup. |
+| 9 | Emergency Recall | Teleports all living teammates to the team Flag Base, main Power Core, or team spawn. Each teammate gets a distinct landing spot when one is available; only if the area is full do players share a spot, protected by 3 s of collision transparency. |
 
 Failed placement prints `Not enough space.` and **does not start the cooldown**.
 Failed target checks print a reason and also leave the slot ready.
