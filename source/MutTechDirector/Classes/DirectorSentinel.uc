@@ -118,5 +118,5 @@ simulated event PostRender(Canvas C)
 
 defaultproperties
 {
-    VehicleNameString=""
+    VehicleNameString="Sentinel"
 }
