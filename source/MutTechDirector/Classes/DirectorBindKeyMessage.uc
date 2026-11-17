@@ -7,13 +7,17 @@
 // client-owned actor, but LocalMessage.ClientReceive is executed on the
 // receiving machine by the reliable PlayerController.ReceiveLocalizedMessage.
 // MutTechDirector.ModifyPlayer() sends this message on every spawn, so each
-// client (and the host) binds N -> "mutate director" into its own input
+// client (and the host) binds B -> "mutate director" into its own input
 // config without replacing PlayerControllerClass and without touching any
 // other mutator's controller (GTAThirdPerson stays fully compatible).
 //
+// B is the default toggle key.  Older builds bound N, so any stale N binding
+// left over from those builds is cleared here before B is written.
+//
 // Binds are written exactly the way the stock GUI does it:
-//   read  : ConsoleCommand("KEYBINDING N")
-//   write : ConsoleCommand("set Input N mutate director")
+//   read  : ConsoleCommand("KEYBINDING B")
+//   write : ConsoleCommand("set Input B mutate director")
+//   clear : ConsoleCommand("SET Input N")
 //=============================================================================
 class DirectorBindKeyMessage extends LocalMessage;
 
@@ -51,12 +55,21 @@ static function ClientReceive(
     if (P == None)
         return;
 
+    // Migration: older builds bound N.  Drop that stale bind so the toggle
+    // lives only on B.
     Cur = P.ConsoleCommand("KEYBINDING N");
+    if (Cur ~= "mutate director")
+    {
+        P.ConsoleCommand("SET Input N");
+        Log("MutTechDirector: cleared legacy N bind");
+    }
+
+    Cur = P.ConsoleCommand("KEYBINDING B");
     if (Cur ~= "mutate director")
         return;
 
-    P.ConsoleCommand("set Input N mutate director");
-    Log("MutTechDirector: bound N -> mutate director on client (was '" $ Cur $ "')");
+    P.ConsoleCommand("set Input B mutate director");
+    Log("MutTechDirector: bound B -> mutate director on client (was '" $ Cur $ "')");
 }
 
 defaultproperties

@@ -91,7 +91,7 @@ The build script handles this correctly.
 - `DirectorInteraction.uc` — raw input, camera zoom, hotbar/cheatsheet/
   TeamMates counter/nameplates, native beacon suppression.
 - `DirectorBindKeyMessage.uc` — invisible LocalMessage whose client-side
-  `ClientReceive` binds K -> `mutate director` (no PlayerController subclass).
+  `ClientReceive` binds B -> `mutate director` (no PlayerController subclass).
 - `MutTechDirectorConfig.uc` — Configure Mutators submenu for the cooldowns.
 - `DirectorRules.uc` — fallback `FindPlayerStart`.
 
@@ -233,14 +233,14 @@ Native floating team beacons are suppressed for the director's
 range-gated (6000 / 1800 units), carry no HP/shield and cannot be made
 always-visible from script, so the custom plates replace them entirely.
 
-## Booth entry, K bind and cooldown configuration
+## Booth entry, B bind and cooldown configuration
 
-- **K toggles the booth, with no PlayerController subclass.**  `ModifyPlayer()`
+- **B toggles the booth, with no PlayerController subclass.**  `ModifyPlayer()`
   sends the invisible `DirectorBindKeyMessage` (a `LocalMessage`) to the pawn's
   controller on every spawn.  `PlayerController.ReceiveLocalizedMessage` is a
   **reliable** RPC, and `LocalMessage.ClientReceive` executes on the owning
-  machine, where it runs `set Input K mutate director` (after checking
-  `KEYBINDING K`), exactly like the stock GUI writes binds.  This works for the
+  machine, where it runs `set Input B mutate director` (after checking
+  `KEYBINDING B`), exactly like the stock GUI writes binds.  This works for the
   host and joining clients, needs no `PlayerControllerClassName` override, and
   therefore keeps controller-replacing mutators (GTAThirdPerson) fully
   compatible.  A missed or manually overwritten bind self-heals on the next
@@ -251,7 +251,7 @@ always-visible from script, so the custom plates replace them entirely.
   pushes "Entering Technical Director booth in X..." through the normal
   `ClientNotify` RPC once per second, then calls
   `MutTechDirector.CompleteEntry()`, which performs the actual booth
-  activation (leave vehicle, unpossess, destroy pawn, spectate, set feed).  Pressing K again cancels; dying during the delay cancels too (that is
+  activation (leave vehicle, unpossess, destroy pawn, spectate, set feed).  Pressing B again cancels; dying during the delay cancels too (that is
   the point of the delay: it cannot be used to dodge an imminent death).
   Exiting is never delayed.
 - **Cooldowns are configurable.**  `MutTechDirector` is `config(User)` and

@@ -63,13 +63,13 @@ the booth a planned role change, not a panic button.
 
 ## Bind the key without owning the controller
 
-The automatic **K** bind is implemented with an invisible `LocalMessage` whose
+The automatic **B** bind is implemented with an invisible `LocalMessage` whose
 `ClientReceive` runs on the owning machine, triggered through the reliable
 `ReceiveLocalizedMessage` RPC. That choice is philosophical as much as
 technical: a universal mutator should not seize `PlayerControllerClass`.
 Subclassing the controller would collide with GTAThirdPerson and any other mod
 that already owns it. The message hook gets the same result — every client
-binds K on spawn — while leaving the stock controller chain untouched.
+binds B on spawn — while leaving the stock controller chain untouched.
 
 ## Server authority, client presentation
 
@@ -124,7 +124,7 @@ clever engine tricks:
   turn into a package-load failure.
 - The entry delay is a plain `Tick()` countdown on the RI, not a timer actor or
   a gametype hook.
-- The K bind reuses the reliable localized-message path instead of replacing
+- The B bind reuses the reliable localized-message path instead of replacing
   the player controller.
 
 ## UI as telemetry, not as a HUD overhaul
@@ -225,7 +225,7 @@ Every mechanic is traceable to a specific function call:
 - `TickEntryCountdown()` → `CompleteEntry()` → `ActivateBooth()`
 - `UseAbility()` → `CheckCooldown()` → `StartCooldown()`
 - `GetMaxCooldown()` → replicated `MaxCooldowns[]` from the config
-- `ModifyPlayer()` → `DirectorBindKeyMessage.ClientReceive()` → `set Input K …`
+- `ModifyPlayer()` → `DirectorBindKeyMessage.ClientReceive()` → `set Input B …`
 - `TrySpawnSpot()` → `Trace()` → `Trace()` → `CollidingActors()`
 - `Tick()` → `Cooldown -= DeltaTime` (server only)
 - `UpdateTeamCounts()` → `TeamAlive` / `TeamDead`

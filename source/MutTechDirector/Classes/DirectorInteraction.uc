@@ -381,7 +381,7 @@ function PostRender(Canvas C)
     L2 = "[Hold Fire/AltFire] Zoom Cam";
     L3 = "[Hold Jump] Heal";
     L4 = "[1-9] Transmat Drop";
-    L5 = "[N] Toggle Booth";
+    L5 = "[B] Toggle Booth";
 
     DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L1), 24.0, L1, Dim);
     DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L2), 24.0 + LineH, L2, Dim);

@@ -73,10 +73,10 @@ event PostRender(Canvas C)
     local bool bHasTurrets;
     local int CheckIdx;
     local MutTechDirector M;
+    local Mutator Mut;
     local PlayerController LocalPC;
     local Pawn ViewportPawn;
     local Actor ViewportActor;
-    local DirectorReplicationInfo DRI;
 
     Super.PostRender(C);
 
@@ -88,6 +88,13 @@ event PostRender(Canvas C)
     {
         ViewportActor = C.Viewport.Actor;
         ViewportPawn = Pawn(ViewportActor);
+    }
+    // Fall back to the interaction's PC pawn when the viewport actor isn't a
+    // pawn (e.g. during booth exit / respawn transitions).
+    if (ViewportPawn == None && PC != None && PC.Pawn != None)
+    {
+        ViewportPawn = PC.Pawn;
+        Log("MutTechDirector: [BEACON-RENDER] using PC.Pawn fallback for ViewportPawn");
     }
     if (ViewportPawn == None)
     {
@@ -109,10 +116,20 @@ event PostRender(Canvas C)
 
     Log("MutTechDirector: [BEACON-RENDER] LocalPC=" $ LocalPC $ " Pawn=" $ LocalPC.Pawn);
 
-    // Find mutator on client side
-    M = MutTechDirector(LocalPC.Level.Game.BaseMutator);
-    while (M != None && !M.IsA('MutTechDirector'))
-        M = MutTechDirector(M.NextMutator);
+    // Find mutator on client side by walking the full mutator chain:
+    // MutTechDirector may not be BaseMutator when other mutators load first.
+    M = None;
+    if (LocalPC.Level != None && LocalPC.Level.Game != None)
+    {
+        Mut = LocalPC.Level.Game.BaseMutator;
+        while (Mut != None)
+        {
+            M = MutTechDirector(Mut);
+            if (M != None)
+                break;
+            Mut = Mut.NextMutator;
+        }
+    }
     if (M == None)
     {
         Log("MutTechDirector: [BEACON-RENDER] early return - mutator not found on client");

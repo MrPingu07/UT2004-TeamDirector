@@ -227,19 +227,19 @@ class DirectorBindKeyMessage extends LocalMessage;
 
 static function ClientReceive(PlayerController P, optional int Switch, ...)
 {
-    P.ConsoleCommand("set Input K mutate director");
+    P.ConsoleCommand("set Input B mutate director");
 }
 ```
 
 The server calls `PC.ReceiveLocalizedMessage(class'DirectorBindKeyMessage', 0)`
 and the client's static `ClientReceive` runs there. This is the mechanism used
-to install the automatic **K** bind without replacing `PlayerControllerClass`,
+to install the automatic **B** bind without replacing `PlayerControllerClass`,
 which is what keeps GTAThirdPerson and other controller-owning mutators
 compatible. `GetString()` returns `""` and `GetLifeTime()` returns `0`, so the
 message is never drawn.
 
 Binds are written exactly like the stock GUI does it:
-`KEYBINDING K` to read, `set Input K mutate director` to write. UT2004 has no
+`KEYBINDING B` to read, `set Input B mutate director` to write. UT2004 has no
 `bind` console command.
 
 Sending it from `MutTechDirector.ModifyPlayer()` means it fires on every spawn,
@@ -293,7 +293,7 @@ master-server DNS failures) appears in this install regardless of the mutator.
 
 - No custom `HUD` subclass: the brief asks for an `Interaction`, and avoiding a
   HUD replacement keeps compatibility with every team gametype.
-- No `PlayerController` subclass: the K bind rides on a `LocalMessage`, so
+- No `PlayerController` subclass: the B bind rides on a `LocalMessage`, so
   controller-replacing mutators (GTAThirdPerson) are unaffected.
 - No `BecomeSpectator()`: it would remove the player from the team roster and
   defeat the roster-count requirement.

@@ -13,7 +13,7 @@ The mutator is deliberately built from stock UT2004 parts only:
 | `MutTechDirector` | `Mutator` | Entry/exit, team lookup, all server-side ability execution, entry delay, configured cooldowns |
 | `DirectorReplicationInfo` | `ReplicationInfo` | Per-player owner-only state, cooldowns, roster counter, camera target, RPC bridge, entry countdown |
 | `DirectorInteraction` | `Interaction` | Client input capture and plain-text `Canvas.DrawText` telemetry |
-| `DirectorBindKeyMessage` | `LocalMessage` | Invisible client-side hook that binds `K` to the booth toggle |
+| `DirectorBindKeyMessage` | `LocalMessage` | Invisible client-side hook that binds `B` to the booth toggle |
 | `MutTechDirectorConfig` | `GUIPage` | **Configure Mutators** submenu for the nine cooldowns |
 | `DirectorRules` | `GameRules` | Last-resort team `PlayerStart` fallback on odd maps |
 | `DirectorSentinel` | `ASVehicle_Sentinel_Floor` | Always walk-through, still shootable perimeter turret |
@@ -30,11 +30,11 @@ inherit from `TeamGame`.
 
 ## Feature summary
 
-- **`K` toggles the booth** for the issuing player, with no manual bind
+- **`B` toggles the booth** for the issuing player, with no manual bind
   required: every human client (and the host) receives the bind automatically on
   spawn. `mutate director` / `mutate techdirector` / `mutate mutdirector` remain
   valid console equivalents.
-- **Mandatory 5-second entry delay.** Pressing `K` starts
+- **Mandatory 5-second entry delay.** Pressing `B` starts
   `Entering Technical Director booth in 5...` (then 4, 3, 2, 1) while the
   player keeps fighting normally. Dying during the delay cancels the entry, so
   the booth cannot be used to dodge an imminent death. **Exiting is instant.**
@@ -92,7 +92,7 @@ inherit from `TeamGame`.
 3. Optional: press **Configure Mutators** in that list to tune the nine transmat
    cooldowns (0–120 s, default 1.0 s). Values save to your user config and
    apply from the next match.
-4. In game, press **`K`**. The bind is installed automatically on spawn; the
+4. In game, press **`B`**. The bind is installed automatically on spawn; the
    console command `mutate director` works as a fallback.
 
 A normal release does **not** need the `MutTechDirector/Classes` source
@@ -105,8 +105,8 @@ script.
 
 | Input | Action |
 |---|---|
-| `K` | Start the 5 s entry delay / leave the booth instantly |
-| `mutate director` | Console equivalent of `K` |
+| `B` | Start the 5 s entry delay / leave the booth instantly |
+| `mutate director` | Console equivalent of `B` |
 | Mouse wheel up / down | Cycle living teammates |
 | Hold left mouse | Zoom camera in |
 | Hold right mouse | Zoom camera out |
@@ -122,7 +122,7 @@ script.
 | `9` | Emergency Recall |
 
 The Interaction consumes only these keys while the booth is active, so normal
-console/chat input still works when those interfaces have focus. `K` itself is a
+console/chat input still works when those interfaces have focus. `B` itself is a
 plain input bind, not an Interaction key, so it also works outside the booth.
 
 ---
@@ -164,7 +164,7 @@ installed. Both upper blocks use a **24 px top margin**.
 [Jump] Nanite Med-Surge  [BEAM]             [Hold Fire/AltFire] Zoom Cam
 [1] Ammunition Requisition      [READY]     [Hold Jump] Heal
 [2] Perimeter Defense           [READY]     [1-9] Transmat Drop
-...                                         [K] Toggle Booth
+...                                         [B] Toggle Booth
 [9] Emergency Recall            [READY]
 ```
 
@@ -282,7 +282,7 @@ for you and also verifies that the `.u` file actually appeared.
 - **Vehicle classes** are resolved with `DynamicLoadObject`, so missing
   bonus-pack content degrades to a fallback or a clean ability failure instead
   of a package-load crash.
-- **No `PlayerController` subclass.** The automatic `K` bind rides on
+- **No `PlayerController` subclass.** The automatic `B` bind rides on
   `LocalMessage.ClientReceive`, which runs on the owning machine. Mutators that
   replace `PlayerControllerClass` (e.g. GTAThirdPerson) are therefore
   unaffected.
@@ -329,10 +329,10 @@ TeamDirector/
 Check that `MutTechDirector.int` and `MutTechDirector.u` are both in `System/`.
 Restart UT2004 after installing new mutators.
 
-**`K` does nothing.**
+**`B` does nothing.**
 The bind is pushed on every spawn; if you joined mid-match, die once (or
 respawn) and it will be applied. You can always type `mutate director` in the
-console. Another mod that rebinds `K` will be overwritten on your next spawn.
+console. Another mod that rebinds `B` will be overwritten on your next spawn.
 
 **`mutate director` says a team game is required.**
 The mutator intentionally refuses non-team modes (Deathmatch, Invasion,

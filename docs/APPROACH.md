@@ -37,7 +37,7 @@
  │     three-line friendly nameplates                           │
  │                                                              │
  │ DirectorBindKeyMessage (LocalMessage)                        │
- │   • ClientReceive -> set Input K mutate director             │
+ │   • ClientReceive -> set Input B mutate director             │
  └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -108,8 +108,8 @@ It never spawns actors or changes another pawn's state.
 
 An invisible `LocalMessage`. Its `ClientReceive` runs on the owning machine
 because `PlayerController.ReceiveLocalizedMessage` is a **reliable** RPC, and
-writes `set Input K mutate director` (after checking `KEYBINDING K`) exactly
-like the stock GUI. This gives every client the K bind with no
+writes `set Input B mutate director` (after checking `KEYBINDING B`) exactly
+like the stock GUI. This gives every client the B bind with no
 `PlayerController` subclass, so controller-replacing mutators such as
 GTAThirdPerson stay compatible. It draws nothing (`GetString` returns `""`,
 `GetLifeTime` returns `0`).
@@ -145,7 +145,7 @@ Sequence in `MutTechDirector.ToggleDirector(PC)`:
 2. **Refuse** spectators and deleted controllers.
 3. If an RI already exists:
    - active → `ExitDirectorMode()` (instant);
-   - pending → `AbortPendingEntry()` (second K press cancels the countdown).
+   - pending → `AbortPendingEntry()` (second B press cancels the countdown).
 4. Otherwise call `StartEntryDelay(PC)`.
 
 `StartEntryDelay()` spawns the owner-only `DirectorReplicationInfo`
@@ -426,7 +426,7 @@ move.
 3. **Top-right cheatsheet** (`X = ClipX - 24 - width`, `Y = 24 + n*LineH`),
    one control per line, no separators:
    `[Wheel] Cycle Fighter Feed`, `[Hold Fire/AltFire] Zoom Cam`,
-   `[Hold Jump] Heal`, `[1-9] Transmat Drop`, `[K] Toggle Booth`.
+   `[Hold Jump] Heal`, `[1-9] Transmat Drop`, `[B] Toggle Booth`.
 4. **Bottom-right `TeamMates` counter**, kept above the chat area and the
    "Now spectating..." banner (`ClipY - 14 - 8/7/6*LineH`):
    - cyan header `TeamMates`;
@@ -470,7 +470,7 @@ No stock HUD class is overridden. Removing the RI removes the Interaction.
 - `NotifyLogout()` disables the booth, clears berserk and destroys the RI.
 - `ToggleDirector()` exits when active, cancels when pending, and otherwise
   starts the entry delay, so double mutate commands cannot create duplicates.
-- The K bind is pushed through `PlayerController.ReceiveLocalizedMessage`,
+- The B bind is pushed through `PlayerController.ReceiveLocalizedMessage`,
   which is declared **reliable** in `Engine/PlayerController.uc`; the
   `LocalMessage.ClientReceive` hook therefore always reaches the owning client
   (host or remote) without any custom `PlayerController` subclass.

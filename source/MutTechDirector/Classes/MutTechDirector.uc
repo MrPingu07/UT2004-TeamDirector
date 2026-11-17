@@ -198,7 +198,7 @@ function DisableTestBeacons(PlayerController PC)
 /**
  * Called on the server for every pawn spawn.  Piggyback the invisible
  * DirectorBindKeyMessage so the owning client runs its ClientReceive and
- * binds K -> "mutate director".  Repeating it per spawn is cheap and makes a
+ * binds B -> "mutate director".  Repeating it per spawn is cheap and makes a
  * missed/overwritten bind self-heal.  LocalMessage.ClientReceive runs on the
  * client, so this needs no custom PlayerController class; other mutators that
  * own the controller (e.g. GTAThirdPerson) stay untouched.
