@@ -236,7 +236,7 @@ event PostRender(Canvas C)
         C.SetPos(Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH);
         C.DrawText(BeaconText);
 
-        BeaconText = "HP [" $ T.Health $ "/" $ 199 $ "]";
+        BeaconText = "HP [" $ T.Health $ "/" $ int(T.HealthMax) $ "]";
         C.StrLen(BeaconText, XL, YL);
         C.SetPos(Screen.X - XL * 0.5, Screen.Y - LineH);
         C.DrawText(BeaconText);
