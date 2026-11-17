@@ -21,9 +21,9 @@ simulated event PostBeginPlay()
     Super.PostBeginPlay();
     MakeWalkThrough();
 
-    // Clear the vehicle name string so the stock HUD has nothing to draw
-    // above the sentinel.
-    VehicleNameString = "";
+    // Set the vehicle name string so the stock HUD draws "Sentinel" above
+    // the sentinel instead of the class name "DirectorSentinel".
+    VehicleNameString = "Sentinel";
     Log("MutTechDirector: [SENTINEL-PB] PostBeginPlay VehicleNameString=" $ VehicleNameString $ " Level.Game=" $ Level.Game);
 
     // Remove from Level.Game.VehicleList (linked list) so the stock HUD's
@@ -118,5 +118,5 @@ simulated event PostRender(Canvas C)
 
 defaultproperties
 {
-    VehicleNameString="Sentinel"
+    VehicleNameString=""
 }
