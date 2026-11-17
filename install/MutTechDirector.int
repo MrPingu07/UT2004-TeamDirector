@@ -3,4 +3,4 @@ Object=(Name=MutTechDirector.MutTechDirector,Class=Class,MetaClass=Engine.Mutato
 
 [MutTechDirector.MutTechDirector]
 FriendlyName="Tournament Technical Director"
-Description="Turns one player per team into the Tournament Technical Director: a remote broadcast operator with a locked fighter feed, tactical zoom, nanite healing and nine configurable transmat abilities. Works in any TeamGame-derived gametype. K toggles the booth (5 second entry delay, instant exit). Cooldowns are editable from Configure Mutators."
+Description="Turns one player per team into the Tournament Technical Director: a remote broadcast operator with a locked fighter feed, tactical zoom, nanite healing and nine configurable transmat abilities. Works in any TeamGame-derived gametype. B toggles the booth (5 second entry delay, instant exit). Cooldowns are editable from Configure Mutators."
