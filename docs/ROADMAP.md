@@ -58,7 +58,22 @@
 - ✅ **Flag carrier immunity** — Emergency recall must not affect the flag carrier. (Already implemented: `HasFlag` check in `RecallTeam`)
 - **Death spectate delay** — When the spectated player dies, wait 1 second before auto-cycling to the next. During this delay, purposefully glitch out all on-screen text. Account for edge case of a vehicle spawning on a dead player.
 - ✅ **Configurable Nanite heal rate** — Expose "Healing per second" in the GUI (range 0.00–199). (Implemented: `NaniteHealRate` config + GUI)
-- ✅ **Team-visible turret beacon** — Show mounted turret beacon for team members deployed in the arena (not just the Director). Format: `Sentinel(n\)HP [X/X]` (no quotes, team-colored, centered like player nameplates). Turrets check line-of-sight to the viewer's camera for displaying their beacon (unlike players, which are always visible to the Director). Implemented via `DirectorTurretBeaconInteraction` + replicated `TeamTurrets[16]` array in `MutTechDirector` mutator (replicates to all clients). `DirectorTurretBeaconMessage` attaches interaction to field players via `ReceiveLocalizedMessage`.
+- ✅ **Team-visible turret beacon** — Show mounted turret beacon for every team member deployed in the arena (combatants and the Director alike), not just the Director. Format is two centred, team-coloured lines above the turret: `Sentinel(n)` on the first line and `HP [X/X]` on the second (no quotes, no shield line — sentinels are walk-through turrets, not fighters). Combatants require line-of-sight from their camera to the turret (world geometry + actor occlusion); the Director sees all friendly turrets without a LOS gate. Implemented via `DirectorTurretBeaconInteraction` (combatants, LOS-checked) plus sentinel rendering in `DirectorInteraction.PostRender` (Director, no LOS gate), both reading the replicated `TeamTurrets[16]` array in `MutTechDirector`. `DirectorTurretBeaconMessage` attaches/reuses (deduped) the interaction on field players via `ReceiveLocalizedMessage`. The list skips `bDeleteMe`/dead sentinels so destroyed turrets drop out of the beacon display.
+
+  **Diagnostics:** every pipeline step emits `[BEACON-*]` / `[DIRECTOR-RENDER]` script logs:
+  - `DeploySentinel` — spawn result, team, spot, `OnTurretChange()` call.
+  - `OnTurretChange` — calls `RefreshTurretList()` then `AttachTurretBeaconsToTeam()` so every current combatant gets the beacon interaction attached whenever the turret roster changes (not only at booth entry).
+  - `RefreshTurretList` — each sentinel scanned, team-match decision, final slot count, push to mutator array.
+  - `RefreshTeamTurrets` — copy count into replicated `MutTechDirector.TeamTurrets`.
+  - `AttachTurretBeaconsToTeam` / `ModifyPlayer` — each field player considered, whether `DirectorTurretBeaconMessage` is sent. `ModifyPlayer` sends to non-Director combatants only when a Director is active (`RI != None`); the Director is excluded to prevent duplicate beacon text with `DirectorInteraction.PostRender`.
+  - `ExitDirectorMode` — sends `DirectorTurretBeaconMessage` to the exiting Director so they see sentries as a combatant after leaving the booth.
+  - `CompleteEntry` — attempts to remove any leftover combatant beacon interaction from the Director (server-side; the `IsInState('Spectating')` guard in the combatant interaction is the reliable client-side backstop).
+  - `DirectorTurretBeaconMessage.ClientReceive` — mutator found/not found, existing interaction reused vs new added, final `bVisible`/`bActive`.
+  - `DirectorTurretBeaconInteraction.PostRender` — entry, viewport pawn (with `PC.Pawn` fallback), LocalPC, mutator found, per-slot skip/draw reasons (behind camera, off-canvas, LOS blocked), text drawn. Uses `C.SmallFont` to match player nameplate typography/size. Skips drawing while the viewer is in Director booth mode (`IsInState('Spectating')`) since `DirectorInteraction.PostRender` already draws Director sentinel beacons — prevents duplicate overlapping text when a former Director re-enters the booth.
+  - `DirectorInteraction.PostRender` — Director sentinel block entry, mutator found, per-slot skip/draw.
+  - `DirectorSentinel.PostRender` — overridden to suppress stock engine native name/beacon drawing above sentinels (stock `Vehicle`/`ASTurret.PostRender` draws the actor name, which overlaps our custom beacon text). Only our custom `Sentinel(n)` / `HP [X/X]` beacon is drawn.
+
+  Tail the server log (`-log`) on the server and each client log to verify turrets enter the array, interactions attach, and beacons draw.
 
 ### 2. Live multi-client playtest
 
@@ -70,6 +85,9 @@
   - wheel and zoom on a real input stack;
   - feed auto-cycle timing after a death;
   - nameplate projection at range and through walls;
+  - sentinel beacons appear for combatants (LOS-checked) and the Director (no LOS gate) as `Sentinel(n)` / `HP [X/X]`, no Shield line;
+  - no duplicate/stacked beacon text on booth re-entry or respawn;
+  - destroyed sentinels drop out of the beacon display;
   - the `TeamMates` counter with bots and with a partial roster;
   - every ability in CTF, ONS and TDM;
   - recall spacing with a full team;

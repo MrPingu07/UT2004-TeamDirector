@@ -478,7 +478,7 @@ function PostRender(Canvas C)
         C.StrLen(PlateText, XL, YL);
         DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
     }
-}
+    }
 
 // ---------------------------------------------------------------------------
 // Hotbar helpers

@@ -42,42 +42,83 @@ static function ClientReceive(
 {
     local DirectorTurretBeaconInteraction BeaconInteraction;
     local MutTechDirector M;
+    local Mutator Mut;
+    local int Idx;
 
-    Log("MutTechDirector: DirectorTurretBeaconMessage.ClientReceive called for " $ P);
+    Log("MutTechDirector: [BEACON] DirectorTurretBeaconMessage.ClientReceive called for P=" $ P);
 
     if (P == None || P.PlayerReplicationInfo == None || P.PlayerReplicationInfo.Team == None)
     {
-        Log("MutTechDirector: ClientReceive early return - invalid P or PRI");
+        Log("MutTechDirector: [BEACON] ClientReceive early return - invalid P or PRI");
         return;
     }
 
+    Log("MutTechDirector: [BEACON] P=" $ P $ " Team=" $ P.PlayerReplicationInfo.Team.TeamIndex $ " bOnlySpectator=" $ P.PlayerReplicationInfo.bOnlySpectator $ " Pawn=" $ P.Pawn);
+
     // Find the MutTechDirector mutator through PlayerController.Level.Game (works in static ClientReceive)
-    M = MutTechDirector(P.Level.Game.BaseMutator);
-    while (M != None && !M.IsA('MutTechDirector'))
-        M = MutTechDirector(M.NextMutator);
+    // Walk the full mutator chain: MutTechDirector may not be BaseMutator when other
+    // mutators are loaded before it.
+    M = None;
+    if (P != None && P.Level != None && P.Level.Game != None)
+    {
+        Mut = P.Level.Game.BaseMutator;
+        while (Mut != None)
+        {
+            M = MutTechDirector(Mut);
+            if (M != None)
+                break;
+            Mut = Mut.NextMutator;
+        }
+    }
 
     if (M == None)
     {
-        Log("MutTechDirector: ClientReceive - mutator not found");
+        Log("MutTechDirector: [BEACON] ClientReceive - mutator NOT found on BaseMutator chain for P=" $ P);
         return;
     }
 
-    Log("MutTechDirector: ClientReceive - mutator found");
+    Log("MutTechDirector: [BEACON] ClientReceive - mutator found M=" $ M);
 
-    // Attach the beacon interaction and set mutator reference for turret list access
-    // No Director RI needed - reads directly from mutator's replicated TeamTurrets array
-    BeaconInteraction = DirectorTurretBeaconInteraction(
-        P.Player.InteractionMaster.AddInteraction(
-            "MutTechDirector.DirectorTurretBeaconInteraction", P.Player));
+    // Attach the beacon interaction, reusing an existing one so repeated
+    // attaches (booth re-entry, respawn, self-healing bind) don't stack
+    // duplicate interactions that would draw the beacon text multiple times.
+    BeaconInteraction = None;
+    for (Idx = 0; Idx < P.Player.LocalInteractions.Length; Idx++)
+    {
+        BeaconInteraction = DirectorTurretBeaconInteraction(
+            P.Player.LocalInteractions[Idx]);
+        if (BeaconInteraction != None)
+        {
+            Log("MutTechDirector: [BEACON] Found existing beacon interaction at LocalInteractions[" $ Idx $ "] BeaconInteraction=" $ BeaconInteraction);
+            break;
+        }
+        BeaconInteraction = None;
+    }
+
+    if (BeaconInteraction == None)
+    {
+        Log("MutTechDirector: [BEACON] No existing beacon interaction; adding new one via InteractionMaster.");
+        BeaconInteraction = DirectorTurretBeaconInteraction(
+            P.Player.InteractionMaster.AddInteraction(
+                "MutTechDirector.DirectorTurretBeaconInteraction", P.Player));
+        Log("MutTechDirector: [BEACON] AddInteraction result BeaconInteraction=" $ BeaconInteraction);
+    }
+    else
+    {
+        Log("MutTechDirector: [BEACON] Reusing existing beacon interaction.");
+    }
+
     if (BeaconInteraction != None)
     {
         BeaconInteraction.RI = None; // Not needed
         BeaconInteraction.PC = P;
-        Log("MutTechDirector: attached turret beacon interaction for field player on client");
+        BeaconInteraction.bVisible = True;
+        BeaconInteraction.bActive = True;
+        Log("MutTechDirector: [BEACON] attached turret beacon interaction for field player on client P=" $ P $ " bVisible=" $ BeaconInteraction.bVisible $ " bActive=" $ BeaconInteraction.bActive);
     }
     else
     {
-        Log("MutTechDirector: ClientReceive - Failed to add interaction!");
+        Log("MutTechDirector: [BEACON] ClientReceive - Failed to add interaction!");
     }
 }
 

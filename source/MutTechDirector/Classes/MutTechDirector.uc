@@ -207,6 +207,7 @@ function ModifyPlayer(Pawn Other)
 {
     local PlayerController PC;
     local DirectorReplicationInfo RI;
+    local bool bIsDirector;
 
     if (Other != None)
         PC = PlayerController(Other.Controller);
@@ -217,14 +218,23 @@ function ModifyPlayer(Pawn Other)
         PC.ReceiveLocalizedMessage(class'DirectorBindKeyMessage', 0);
 
         // Attach turret beacon interaction via LocalMessage so it runs on the CLIENT
-        // and can access the replicated mutator (TeamTurrets array)
+        // and can access the replicated mutator (TeamTurrets array).
+        // Send to every non-Director combatant, whether or not a Director is active:
+        // combatants need the beacon interaction even after the Director leaves the booth.
         RI = FindTeamDirectorRI(PC.PlayerReplicationInfo.Team.TeamIndex);
         Log("MutTechDirector: ModifyPlayer - PC=" $ PC $ ", Team=" $ PC.PlayerReplicationInfo.Team.TeamIndex $ ", RI=" $ RI);
         if (RI != None)
         {
             Log("MutTechDirector: ModifyPlayer - RI.bDirectorActive=" $ RI.bDirectorActive $ ", PC=" $ PC $ ", RI.DirectorPC=" $ RI.DirectorPC);
         }
-        if (RI != None && RI.bDirectorActive && PC != RI.DirectorPC)
+
+        bIsDirector = (RI != None && RI.bDirectorActive && PC == RI.DirectorPC);
+        // Only attach the combatant beacon interaction when a Director is active.
+        // The Director must never receive it here — they see sentries via
+        // DirectorInteraction.PostRender, which would draw duplicate overlapping
+        // beacon text.  Former Directors get the interaction in ExitDirectorMode()
+        // instead, when they leave the booth and return to combatant status.
+        if (RI != None && !bIsDirector)
         {
             Log("MutTechDirector: ModifyPlayer - sending DirectorTurretBeaconMessage to " $ PC);
             PC.ReceiveLocalizedMessage(class'DirectorTurretBeaconMessage', 0);
@@ -381,6 +391,8 @@ function CompleteEntry(DirectorReplicationInfo RI)
     local PlayerController PC;
     local Pawn OldPawn;
     local Pawn Initial;
+    local int Idx;
+    local DirectorTurretBeaconInteraction I;
 
     if (RI == None || RI.bDeleteMe)
         return;
@@ -433,6 +445,20 @@ function CompleteEntry(DirectorReplicationInfo RI)
     Initial = FindTeammate(PC, None, 1);
     RI.SetTarget(Initial);
 
+    // Remove any combatant beacon interaction from the Director: they see
+    // sentries via DirectorInteraction.PostRender, not via the LOS-checked
+    // combatant interaction.  This prevents duplicate overlapping beacon text
+    // when a former Director re-enters the booth after ExitDirectorMode gave
+    // them the combatant interaction.
+    for (Idx = PC.Player.LocalInteractions.Length - 1; Idx >= 0; Idx--)
+    {
+        I = DirectorTurretBeaconInteraction(PC.Player.LocalInteractions[Idx]);
+        if (I != None)
+        {
+            I.Cleanup();
+        }
+    }
+
     // Attach turret beacon interactions to all team members (except the Director)
     AttachTurretBeaconsToTeam(RI.DirectorTeam, RI);
 
@@ -446,39 +472,82 @@ function CompleteEntry(DirectorReplicationInfo RI)
 function AttachTurretBeaconsToTeam(byte Team, DirectorReplicationInfo RI)
 {
     local PlayerController PC;
+    local int Sent;
+    local int Skipped;
+    local bool DirActive;
 
-    Log("MutTechDirector: AttachTurretBeaconsToTeam called for team " $ Team);
+    Log("MutTechDirector: [BEACON-ATTACH] AttachTurretBeaconsToTeam called for team " $ Team);
 
+    DirActive = False;
+    if (RI != None)
+        DirActive = RI.bDirectorActive;
+    Log("MutTechDirector: [BEACON-ATTACH] RI=" $ RI $ " bDirectorActive=" $ DirActive);
+
+    Sent = 0;
+    Skipped = 0;
     foreach AllActors(class'PlayerController', PC)
     {
-        if (PC == None || PC.Pawn == None)
+        if (PC == None)
+        {
+            Skipped++;
             continue;
+        }
+        if (PC.Pawn == None)
+        {
+            Log("MutTechDirector: [BEACON-ATTACH] skip PC=" $ PC $ " (no Pawn)");
+            Skipped++;
+            continue;
+        }
         if (PC.PlayerReplicationInfo == None ||
             PC.PlayerReplicationInfo.Team == None ||
             PC.PlayerReplicationInfo.Team.TeamIndex != Team)
+        {
+            Log("MutTechDirector: [BEACON-ATTACH] skip PC=" $ PC $ " (team mismatch/no PRI)");
+            Skipped++;
             continue;
+        }
         if (PC == RI.DirectorPC)
+        {
+            Log("MutTechDirector: [BEACON-ATTACH] skip PC=" $ PC $ " (is Director)");
+            Skipped++;
             continue;
+        }
         if (PC.PlayerReplicationInfo.bOnlySpectator)
+        {
+            Log("MutTechDirector: [BEACON-ATTACH] skip PC=" $ PC $ " (spectator)");
+            Skipped++;
             continue;
+        }
 
-        Log("MutTechDirector: AttachTurretBeaconsToTeam - sending DirectorTurretBeaconMessage to " $ PC);
+        Log("MutTechDirector: [BEACON-ATTACH] sending DirectorTurretBeaconMessage to PC=" $ PC $ " Pawn=" $ PC.Pawn);
         PC.ReceiveLocalizedMessage(class'DirectorTurretBeaconMessage', 0);
+        Sent++;
     }
+
+    Log("MutTechDirector: [BEACON-ATTACH] done - sent=" $ Sent $ " skipped=" $ Skipped);
 }
 
 /** Update the replicated turret list for field player beacon display. */
 function RefreshTeamTurrets(Pawn SourceTurrets[16])
 {
     local int i;
+    local int Count;
 
     if (Role < ROLE_Authority)
+    {
+        log("MutTechDirector: RefreshTeamTurrets called but Role < ROLE_Authority, ignoring.");
         return;
+    }
 
+    Count = 0;
     for (i = 0; i < 16; i++)
     {
         TeamTurrets[i] = SourceTurrets[i];
+        if (SourceTurrets[i] != None)
+            Count++;
     }
+
+    log("MutTechDirector: RefreshTeamTurrets copied " $ Count $ " turrets to replicated array.");
 }
 
 function ExitDirectorMode(DirectorReplicationInfo RI)
@@ -498,6 +567,15 @@ function ExitDirectorMode(DirectorReplicationInfo RI)
     // if the client misses the actor-destruction event.  The final message goes
     // out through the same reliable RPC so remote clients see it too.
     RI.ClientCloseBooth("Technical Director offline. Returning to the arena.");
+
+    // Give the exiting Director the combatant beacon interaction so they see
+    // sentry beacons as a combatant after leaving the booth.  Must be sent
+    // before RI.Destroy() so the reliable RPC is still valid.
+    if (PC != None)
+    {
+        Log("MutTechDirector: ExitDirectorMode - sending DirectorTurretBeaconMessage to former Director " $ PC);
+        PC.ReceiveLocalizedMessage(class'DirectorTurretBeaconMessage', 0);
+    }
 
     if (PC != None)
     {
@@ -829,18 +907,22 @@ function bool DeploySentinel(Pawn P, byte Team, optional DirectorReplicationInfo
 
     T = Spawn(SClass,,, Spot, P.Rotation);
     if (T == None)
+    {
+        log("MutTechDirector: DeploySentinel FAIL spawn returned None for P=" $ P);
         return False;
+    }
 
     T.SetTeamNum(Team);
     T.bTeamLocked = True;
 
     // DirectorSentinel enforces walk-through collision (turret, base and
     // swivel) while keeping bCollideActors for hitscan/projectile hits.
-    log("MutTechDirector: DeploySentinel deployed walk-through turret Spot=" $ Spot);
+    log("MutTechDirector: DeploySentinel deployed walk-through turret Spot=" $ Spot $ " Team=" $ Team $ " T=" $ T);
 
     DeployFX(Spot, Team, 1);
 
     // Update turret list for beacon display
+    log("MutTechDirector: DeploySentinel calling RI.OnTurretChange() RI=" $ RI);
     if (RI != None)
         RI.OnTurretChange();
 

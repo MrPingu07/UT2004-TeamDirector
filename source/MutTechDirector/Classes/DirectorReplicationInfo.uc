@@ -320,22 +320,39 @@ function RefreshTurretList()
 {
     local DirectorSentinel T;
     local int i;
+    local int Count;
+    local byte TeamNum;
 
     if (Role < ROLE_Authority)
+    {
+        log("MutTechDirector: RefreshTurretList called but Role < ROLE_Authority, ignoring.");
         return;
+    }
 
     i = 0;
+    Count = 0;
+
+    log("MutTechDirector: RefreshTurretList START DirectorTeam=" $ DirectorTeam $ " DirectorMutator=" $ DirectorMutator);
 
     foreach AllActors(class'DirectorSentinel', T)
     {
-        if (T == None || T.Health <= 0)
+        TeamNum = T.GetTeamNum();
+        if (T == None || T.bDeleteMe || T.Health <= 0)
+        {
+            log("MutTechDirector: RefreshTurretList skip T=" $ T $ " (none/bDeleteMe/dead)");
             continue;
+        }
         if (T.GetTeamNum() != DirectorTeam)
+        {
+            log("MutTechDirector: RefreshTurretList skip T=" $ T $ " team=" $ TeamNum $ " != DirectorTeam=" $ DirectorTeam);
             continue;
+        }
         if (i < 16)
         {
             TeamTurrets[i] = T;
+            log("MutTechDirector: RefreshTurretList slot[" $ i $ "] = T=" $ T $ " team=" $ TeamNum $ " health=" $ T.Health);
             i++;
+            Count++;
         }
     }
 
@@ -346,16 +363,36 @@ function RefreshTurretList()
         i++;
     }
 
+    log("MutTechDirector: RefreshTurretList done, " $ Count $ " turrets registered for team " $ DirectorTeam);
+
     // Also update the mutator's replicated array for field players
     if (DirectorMutator != None)
+    {
+        log("MutTechDirector: RefreshTurretList calling DirectorMutator.RefreshTeamTurrets()");
         DirectorMutator.RefreshTeamTurrets(TeamTurrets);
+    }
+    else
+    {
+        log("MutTechDirector: RefreshTurretList DirectorMutator is None, NOT pushing to mutator array.");
+    }
 }
 
 /** Called by mutator when a turret is deployed or destroyed. */
 function OnTurretChange()
 {
+    log("MutTechDirector: OnTurretChange() called Role=" $ Role);
     if (Role == ROLE_Authority)
+    {
         RefreshTurretList();
+        // Attach/reattach beacon interactions to all current combatants so they
+        // get the turret beacon interaction whenever the turret roster changes
+        // (not only when the Director first enters the booth).
+        if (DirectorMutator != None)
+        {
+            log("MutTechDirector: OnTurretChange calling DirectorMutator.AttachTurretBeaconsToTeam()");
+            DirectorMutator.AttachTurretBeaconsToTeam(DirectorTeam, Self);
+        }
+    }
 }
 
 /** Drop a pending entry without ever opening the booth. */
