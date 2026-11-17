@@ -395,12 +395,15 @@ returns early, so the cooldown is not consumed.
   2. `ONSPowerCore` with `DefenderTeamIndex == team`, preferring `bFinalCore`;
   3. `PlayerStart.TeamNumber == team`;
   4. neutral/default start.
-- For each teammate, try 18 spots on a ring around the anchor:
-  - angle based on teammate index + 30° increments;
-  - radius based on index/attempt;
-  - downward box trace to a floor within 640 units vertically;
-  - `SpotIsFree()` rejects overlaps with pawns/blocking actors;
-  - place at floor + `PawnHeight + 16`.
+- Find **one** group landing spot around the anchor (18 ring candidates plus
+  an anchor fallback), then move every recalled teammate to that same spot.
+  Priority is that the recall always succeeds; stacked teammates are fine.
+- Before moving each pawn, `GrantRecallPass()` stores its collision state and
+  disables collision (`SetCollision(False, False)`), then `FinishRecallPassMove()`
+  restores trace/projectile collision immediately but keeps pawn blocking off.
+  For 3 seconds the recalled group is collision-transparent to each other, so
+  they can step apart. `MutTechDirector.Tick` restores the saved collision
+  flags when the window expires.
 - `SetLocation`, zero velocity, `SetPhysics(PHYS_Falling)` for non-vehicles,
   `PlayTeleportEffect(False, True)`.
 - One recall sound cue for the Director.

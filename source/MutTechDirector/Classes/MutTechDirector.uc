@@ -56,6 +56,21 @@ var array<DirectorReplicationInfo> Directors;
 /** Replicated list of friendly turrets for beacon display (all team members). */
 var Pawn TeamTurrets[16];
 
+/**
+ * A pawn recalled by Emergency Recall, temporarily made collision-transparent
+ * so several teammates can share the same landing spot without shoving each
+ * other out of it.
+ */
+struct RecallPassEntry
+{
+    var Pawn P;
+    var bool bSavedCollideActors;
+    var bool bSavedBlockActors;
+    var float EndTime;
+};
+
+var array<RecallPassEntry> RecallPass;
+
 replication
 {
     reliable if (Role == ROLE_Authority)
@@ -95,6 +110,90 @@ function PostBeginPlay()
     // and initialize Karma physics on CTF, TDM, AS, BR, DOM maps.
     if (Level.Game != None)
         Level.Game.bAllowVehicles = True;
+}
+
+/**
+ * Restore collision on pawns whose Emergency Recall grace period expired.
+ * Runs on the server; bAlwaysTick is set so the mutator ticks even though it
+ * is never net-relevant.
+ */
+event Tick(float DeltaTime)
+{
+    local int i;
+
+    Super.Tick(DeltaTime);
+
+    for (i = RecallPass.Length - 1; i >= 0; i--)
+    {
+        if (RecallPass[i].P == None || RecallPass[i].P.bDeleteMe)
+        {
+            RecallPass.Remove(i, 1);
+            continue;
+        }
+
+        if (Level.TimeSeconds >= RecallPass[i].EndTime)
+        {
+            RecallPass[i].P.SetCollision(RecallPass[i].bSavedCollideActors,
+                RecallPass[i].bSavedBlockActors);
+            RecallPass.Remove(i, 1);
+        }
+    }
+}
+
+/** Make a recalled pawn collision-transparent for the recall grace period. */
+function GrantRecallPass(Pawn P)
+{
+    local int i;
+    local int Slot;
+
+    if (P == None)
+        return;
+
+    // Already protected: refresh the window instead of stacking entries.
+    for (i = 0; i < RecallPass.Length; i++)
+    {
+        if (RecallPass[i].P == P)
+        {
+            RecallPass[i].EndTime = Level.TimeSeconds + 3.0;
+            // Re-disable full collision for this move; FinishRecallPassMove
+            // restores trace collision immediately afterwards.
+            P.SetCollision(False, False);
+            return;
+        }
+    }
+
+    Slot = RecallPass.Length;
+    RecallPass.Length = Slot + 1;
+    RecallPass[Slot].P = P;
+    RecallPass[Slot].bSavedCollideActors = P.bCollideActors;
+    RecallPass[Slot].bSavedBlockActors = P.bBlockActors;
+    RecallPass[Slot].EndTime = Level.TimeSeconds + 3.0;
+
+    P.SetCollision(False, False);
+
+    Log("MutTechDirector: RecallTeam granted 3s collision transparency to " $ P);
+}
+
+/**
+ * After the pawn has been moved into the shared landing spot, turn trace /
+ * projectile collision back on immediately, but leave pawn blocking off for
+ * the rest of the grace window so stacked teammates can separate themselves.
+ */
+function FinishRecallPassMove(Pawn P)
+{
+    local int i;
+
+    if (P == None)
+        return;
+
+    for (i = 0; i < RecallPass.Length; i++)
+    {
+        if (RecallPass[i].P == P)
+        {
+            P.SetCollision(RecallPass[i].bSavedCollideActors, False);
+            return;
+        }
+    }
 }
 
 function Mutate(string MutateString, PlayerController Sender)
@@ -1120,24 +1219,36 @@ function bool RecallTeam(DirectorReplicationInfo RI)
 
     log("MutTechDirector: RecallTeam home=" $ HomeName $ " BaseLoc=" $ BaseLoc);
 
+    // Emergency recall is a regroup: put the whole team on ONE safe landing
+    // spot.  Stacked teammates would normally shove each other out of the
+    // spot, so every recalled pawn is made collision-transparent for 3 s
+    // (GrantRecallPass) before it is moved.  Priority is that the recall
+    // always succeeds, not that everyone gets a separate tile.
+    if (!FindRecallSpot(BaseLoc, TeamPawns[0], 0, TeamPawns.Length, Dest))
+    {
+        Dest = BaseLoc;
+        Dest.Z = Dest.Z + FMax(48.0, TeamPawns[0].CollisionHeight) + 16.0;
+        log("MutTechDirector: RecallTeam no traced spot; using home fallback " $ Dest);
+    }
+    log("MutTechDirector: RecallTeam group destination=" $ Dest);
+
     for (i = 0; i < TeamPawns.Length; i++)
     {
         P = TeamPawns[i];
         if (P == None || P.Health <= 0)
             continue;
 
-        if (!FindRecallSpot(BaseLoc, P, i, TeamPawns.Length, Dest))
-        {
-            log("MutTechDirector: RecallTeam no recall spot for pawn " $ P);
-            continue;
-        }
+        // Drop actor collision BEFORE moving so a stacked landing cannot be
+        // rejected or push a teammate out of the destination.
+        GrantRecallPass(P);
 
         P.SetLocation(Dest);
+        FinishRecallPassMove(P);
         P.Velocity = vect(0,0,0);
         if (Vehicle(P) == None)
             P.SetPhysics(PHYS_Falling);
         P.PlayTeleportEffect(False, True);
-        log("MutTechDirector: RecallTeam moved pawn " $ P $ " to " $ Dest);
+        log("MutTechDirector: RecallTeam moved pawn " $ P $ " to " $ P.Location);
         bAny = True;
     }
 
@@ -1535,9 +1646,10 @@ function DeployFX(vector Loc, byte Team, int Kind)
 defaultproperties
 {
     FriendlyName="Tournament Technical Director"
-    Description="Turns one player per team into the Tournament Technical Director: a remote broadcast operator with a locked fighter feed, tactical zoom, nanite healing and nine configurable transmat abilities. Press N to enter (5 second delay) or leave instantly. Works in any TeamGame-derived gametype."
+    Description="Turns one player per team into the Tournament Technical Director: a remote broadcast operator with a locked fighter feed, tactical zoom, nanite healing and nine configurable transmat abilities. Press B to enter (5 second delay) or leave instantly. Works in any TeamGame-derived gametype."
     GroupName="MutTechDirector"
     bAddToServerPackages=True
+    bAlwaysTick=True
 
     // Configure Mutators button -> our own settings submenu.
     ConfigMenuClassName="MutTechDirector.MutTechDirectorConfig"

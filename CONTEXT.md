@@ -165,7 +165,10 @@ Slot layout (all cooldowns currently 1.0 s, tuned in
 - **Slot 6**: SPMA Artillery (`OnslaughtBP.ONSArtillery`)
 - **Slot 7**: Cicada/Raptor (`OnslaughtBP.ONSDualAttackCraft` → `Onslaught.ONSAttackCraft`)
 - **Slot 8**: Hover Tank (`Onslaught.ONSHoverTank`)
-- **Slot 9**: Emergency Recall
+- **Slot 9**: Emergency Recall — all living teammates move to one shared
+  landing spot at the team anchor and receive 3 s of collision transparency
+  (pawn blocking off, trace/projectile collision still on) so they can step
+  apart.
 
 Telefrag mitigation summary:
 - **Selected player**: Forced into driver seat via `KDriverEnter(P)` — cannot be
