@@ -143,7 +143,7 @@ server via **Configure Mutators** (`Cooldown1..9`).
 | 6 | SPMA Artillery | `OnslaughtBP.ONSArtillery` dropped at the fighter's feet |
 | 7 | Light Vehicle Transmat | `OnslaughtBP.ONSDualAttackCraft`, falling back to `Onslaught.ONSAttackCraft` |
 | 8 | Heavy Asset Drop | `Onslaught.ONSHoverTank` |
-| 9 | Emergency Recall | Teleports all living teammates to the team Flag Base, main Power Core, or team spawn. Each teammate gets a distinct landing spot when one is available; if the area is full or cannot take the pawn, players are sent to the team's PlayerStarts (repeating starts if needed). All recalled players get 3 s of collision transparency. |
+| 9 | Emergency Recall | Teleports all living teammates to the team Flag Base, main Power Core, or team spawn. Each teammate gets a distinct landing spot when possible; if the anchor is full or enclosed, the whole team goes to the exact objective centre instead (flag, power node, random owned DOM point — explicit failure if none owned — or a random team spawn in TDM/Invasion/BR), with 5 s collision transparency. |
 
 Failed placement prints `Not enough space.` and **does not start the cooldown**.
 Failed target checks print a reason and also leave the slot ready.

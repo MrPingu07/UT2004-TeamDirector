@@ -141,7 +141,7 @@ event Tick(float DeltaTime)
 }
 
 /** Make a recalled pawn collision-transparent for the recall grace period. */
-function GrantRecallPass(Pawn P)
+function GrantRecallPass(Pawn P, optional float Duration)
 {
     local int i;
     local int Slot;
@@ -149,12 +149,15 @@ function GrantRecallPass(Pawn P)
     if (P == None)
         return;
 
+    if (Duration <= 0.0)
+        Duration = 3.0;
+
     // Already protected: refresh the window instead of stacking entries.
     for (i = 0; i < RecallPass.Length; i++)
     {
         if (RecallPass[i].P == P)
         {
-            RecallPass[i].EndTime = Level.TimeSeconds + 3.0;
+            RecallPass[i].EndTime = Level.TimeSeconds + Duration;
             // Re-disable full collision for this move; FinishRecallPassMove
             // restores trace collision immediately afterwards.
             P.SetCollision(False, False);
@@ -167,11 +170,11 @@ function GrantRecallPass(Pawn P)
     RecallPass[Slot].P = P;
     RecallPass[Slot].bSavedCollideActors = P.bCollideActors;
     RecallPass[Slot].bSavedBlockActors = P.bBlockActors;
-    RecallPass[Slot].EndTime = Level.TimeSeconds + 3.0;
+    RecallPass[Slot].EndTime = Level.TimeSeconds + Duration;
 
     P.SetCollision(False, False);
 
-    Log("MutTechDirector: RecallTeam granted 3s collision transparency to " $ P);
+    Log("MutTechDirector: RecallTeam granted " $ Duration $ "s collision transparency to " $ P);
 }
 
 /**
@@ -1201,10 +1204,11 @@ function bool RecallTeam(DirectorReplicationInfo RI)
     local array<Pawn> TeamPawns;
     local vector BaseLoc;
     local string HomeName;
+    local string FallbackName;
     local vector Dest;
-    local vector GroupDest;
+    local vector AltDest;
     local array<vector> UsedSpots;
-    local array<vector> NoSpots;
+    local array<vector> Planned;
     local array<PlayerStart> Starts;
     local array<PlayerStart> NeutralStarts;
     local PlayerStart PS;
@@ -1213,6 +1217,7 @@ function bool RecallTeam(DirectorReplicationInfo RI)
     local int i;
     local bool bUseHome;
     local bool bMoved;
+    local bool bNeedGroupFallback;
     local bool bAny;
 
     if (RI == None || RI.DirectorPC == None ||
@@ -1248,9 +1253,8 @@ function bool RecallTeam(DirectorReplicationInfo RI)
     else
         log("MutTechDirector: RecallTeam no home location; PlayerStarts are the fallback");
 
-    // Gather this team's PlayerStarts for the hard fallback.  If the map has
-    // no team-tagged starts, use neutral starts.  Multiple players may reuse
-    // the same start when there are fewer starts than teammates.
+    // Gather this team's PlayerStarts for the emergency fallback.  If the map
+    // has no team-tagged starts, use neutral starts.
     foreach DynamicActors(class'PlayerStart', PS)
     {
         if (PS == None || !PS.bEnabled)
@@ -1271,94 +1275,117 @@ function bool RecallTeam(DirectorReplicationInfo RI)
         return False;
     }
 
-    // Preferred behaviour: one distinct landing spot per teammate.  Only if
-    // the ring has no free spot left do we reuse the group fallback, in which
-    // case two or more pawns land on the same point and rely on the 3 s
-    // collision transparency to step apart.
-    if (bUseHome)
-    {
-        if (!FindRecallSpot(BaseLoc, TeamPawns[0], 0, TeamPawns.Length, GroupDest, NoSpots))
-        {
-            GroupDest = BaseLoc;
-            GroupDest.Z = GroupDest.Z + FMax(48.0, TeamPawns[0].CollisionHeight) + 16.0;
-            log("MutTechDirector: RecallTeam no traced spot; using home fallback " $ GroupDest);
-        }
-    }
-    else
-    {
-        GroupDest = Starts[0].Location;
-    }
-    log("MutTechDirector: RecallTeam group fallback=" $ GroupDest);
-
-    StartCursor = 0;
+    // 1) Preferred behaviour: one distinct landing spot per teammate around
+    //    the team anchor.  If ANY pawn cannot be placed there, abandon the
+    //    individual placements and use the gametype emergency point for the
+    //    whole team instead of failing.
+    bNeedGroupFallback = False;
+    Planned.Length = TeamPawns.Length;
     for (i = 0; i < TeamPawns.Length; i++)
     {
         P = TeamPawns[i];
         if (P == None || P.Health <= 0)
             continue;
 
-        // Drop actor collision BEFORE moving so a shared landing cannot be
-        // rejected or push a teammate out of the destination.
-        GrantRecallPass(P);
-        bMoved = False;
-
-        // 1) Try a distinct spot around the team anchor.
-        if (bUseHome && FindRecallSpot(BaseLoc, P, i, TeamPawns.Length, Dest, UsedSpots))
+        if (!bUseHome || !FindRecallSpot(BaseLoc, P, i, TeamPawns.Length, Dest, UsedSpots))
         {
-            bMoved = P.SetLocation(Dest);
-            if (bMoved)
+            log("MutTechDirector: RecallTeam not enough space for " $ P $ "; whole team will use the emergency point");
+            bNeedGroupFallback = True;
+            break;
+        }
+
+        Planned[i] = Dest;
+        UsedSpots[UsedSpots.Length] = Dest;
+        log("MutTechDirector: RecallTeam planned distinct spot " $ Dest $ " for " $ P);
+    }
+
+    // Move only after the whole individual plan is known, so a failed plan
+    // never leaves half the team teleported.
+    if (!bNeedGroupFallback)
+    {
+        for (i = 0; i < TeamPawns.Length; i++)
+        {
+            P = TeamPawns[i];
+            if (P == None || P.Health <= 0)
+                continue;
+
+            // Drop actor collision BEFORE moving so a shared landing cannot be
+            // rejected or push a teammate out of the destination.
+            GrantRecallPass(P);
+            bMoved = P.SetLocation(Planned[i]);
+            if (!bMoved)
             {
-                UsedSpots[UsedSpots.Length] = Dest;
-                log("MutTechDirector: RecallTeam assigned distinct spot " $ Dest $ " to " $ P);
+                CancelRecallPass(P);
+                log("MutTechDirector: RecallTeam spot " $ Planned[i] $ " rejected for " $ P $ "; whole team will use the emergency point");
+                bNeedGroupFallback = True;
+                break;
             }
-            else
+
+            FinishRecallPassMove(P);
+            P.Velocity = vect(0,0,0);
+            if (Vehicle(P) == None)
+                P.SetPhysics(PHYS_Falling);
+            P.PlayTeleportEffect(False, True);
+            log("MutTechDirector: RecallTeam moved pawn " $ P $ " to " $ P.Location);
+            bAny = True;
+        }
+    }
+
+    // 2) The anchor could not hold the whole team.  Send EVERYONE to the
+    //    exact middle of the gametype objective (flag, power core/node, one
+    //    random DOM point), or one random team spawn in TDM/Invasion/BR.
+    //    These pawns get 5 s of collision transparency to escape a cramped
+    //    or enclosed objective area.
+    if (bNeedGroupFallback)
+    {
+        if (!FindEmergencyFallbackLocation(RI.DirectorTeam, Starts, Dest, FallbackName))
+        {
+            log("MutTechDirector: RecallTeam FAIL no emergency fallback location");
+            return False;
+        }
+        else
+        {
+            log("MutTechDirector: RecallTeam emergency fallback " $ FallbackName $ " at " $ Dest);
+            StartCursor = 0;
+            for (i = 0; i < TeamPawns.Length; i++)
             {
-                log("MutTechDirector: RecallTeam spot " $ Dest $ " rejected for " $ P $ "; trying PlayerStarts");
+                P = TeamPawns[i];
+                if (P == None || P.Health <= 0)
+                    continue;
+
+                GrantRecallPass(P, 5.0);
+                bMoved = P.SetLocation(Dest);
+                if (!bMoved)
+                {
+                    log("MutTechDirector: RecallTeam emergency point rejected for " $ P $ "; trying PlayerStarts");
+                    Tries = 0;
+                    while (!bMoved && Starts.Length > 0 && Tries < Starts.Length)
+                    {
+                        AltDest = Starts[StartCursor % Starts.Length].Location;
+                        StartCursor++;
+                        Tries++;
+                        bMoved = P.SetLocation(AltDest);
+                    }
+                    if (bMoved)
+                        Dest = AltDest;
+                }
+
+                if (!bMoved)
+                {
+                    CancelRecallPass(P);
+                    log("MutTechDirector: RecallTeam could not place " $ P $ " anywhere; leaving it where it was");
+                    continue;
+                }
+
+                FinishRecallPassMove(P);
+                P.Velocity = vect(0,0,0);
+                if (Vehicle(P) == None)
+                    P.SetPhysics(PHYS_Falling);
+                P.PlayTeleportEffect(False, True);
+                log("MutTechDirector: RecallTeam moved pawn " $ P $ " to emergency point " $ P.Location);
+                bAny = True;
             }
         }
-        else if (bUseHome)
-        {
-            log("MutTechDirector: RecallTeam no free spot left for " $ P $ "; trying PlayerStarts");
-        }
-
-        // 2) Hard fallback: this team's PlayerStarts, one per player and
-        //    repeating starts only when there are more players than starts.
-        Tries = 0;
-        while (!bMoved && Starts.Length > 0 && Tries < Starts.Length)
-        {
-            Dest = Starts[StartCursor % Starts.Length].Location;
-            StartCursor++;
-            Tries++;
-            bMoved = P.SetLocation(Dest);
-            if (bMoved)
-                log("MutTechDirector: RecallTeam placed " $ P $ " at PlayerStart " $ Dest);
-            else
-                log("MutTechDirector: RecallTeam PlayerStart " $ Dest $ " rejected for " $ P);
-        }
-
-        // 3) Absolute last resort: share the anchor point.
-        if (!bMoved && bUseHome)
-        {
-            Dest = GroupDest;
-            bMoved = P.SetLocation(Dest);
-            if (bMoved)
-                log("MutTechDirector: RecallTeam shared group point " $ Dest $ " with " $ P);
-        }
-
-        if (!bMoved)
-        {
-            CancelRecallPass(P);
-            log("MutTechDirector: RecallTeam could not place " $ P $ "; leaving it where it was");
-            continue;
-        }
-
-        FinishRecallPassMove(P);
-        P.Velocity = vect(0,0,0);
-        if (Vehicle(P) == None)
-            P.SetPhysics(PHYS_Falling);
-        P.PlayTeleportEffect(False, True);
-        log("MutTechDirector: RecallTeam moved pawn " $ P $ " to " $ P.Location);
-        bAny = True;
     }
 
     log("MutTechDirector: RecallTeam finished bAny=" $ bAny);
@@ -1368,6 +1395,108 @@ function bool RecallTeam(DirectorReplicationInfo RI)
             Sound'WeaponSounds.LinkGun.BLinkGunBeam1', true, 1.0, SLOT_None);
 
     return bAny;
+}
+
+/**
+ * Last-resort group destination when the anchor cannot take the whole team.
+ * Chooses the exact middle of the gametype objective so an enclosed flag or
+ * power core still yields a valid rally point:
+ *   CTF          -> the team's flag actor
+ *   ONS          -> the team's power core/node (final core preferred)
+ *   DOM/cDOM2    -> one randomly chosen DominationPoint
+ *   Bombing Run  -> one random team-base PlayerStart
+ *   TDM/Invasion -> one random PlayerStart for the whole group
+ */
+function bool FindEmergencyFallbackLocation(byte Team, array<PlayerStart> Starts,
+    out vector Result, out string FallbackName)
+{
+    local CTFFlag Flag;
+    local ONSPowerCore Core;
+    local ONSPowerCore AnyCore;
+    local DominationPoint Dom;
+    local array<DominationPoint> Points;
+    local bool bDomMap;
+
+    if (Level.Game != None && Level.Game.IsA('CTFGame'))
+    {
+        foreach DynamicActors(class'CTFFlag', Flag)
+        {
+            if (Flag != None && Flag.TeamNum == Team)
+            {
+                Result = Flag.Location;
+                FallbackName = "CTF flag";
+                return True;
+            }
+        }
+    }
+
+    if (Level.Game != None && Level.Game.IsA('ONSOnslaughtGame'))
+    {
+        foreach DynamicActors(class'ONSPowerCore', Core)
+        {
+            if (Core == None || Core.DefenderTeamIndex != Team)
+                continue;
+            if (Core.bFinalCore)
+            {
+                Result = Core.Location;
+                FallbackName = "Power core";
+                return True;
+            }
+            if (AnyCore == None)
+                AnyCore = Core;
+        }
+        if (AnyCore != None)
+        {
+            Result = AnyCore.Location;
+            FallbackName = "Power node";
+            return True;
+        }
+    }
+
+    // Stock DOM, xDoubleDom and cDOM2 all derive from DominationPoint.
+    // Only points currently owned by this team are valid rally points.  There
+    // is no priority among them: pick one at random.  If this is a DOM map and
+    // the team owns none, the fallback is explicitly disallowed (the caller
+    // reports the failure to the Director) rather than silently using a spawn.
+    foreach DynamicActors(class'DominationPoint', Dom)
+    {
+        if (Dom == None)
+            continue;
+        bDomMap = True;
+        if (Dom.ControllingTeam != None &&
+            Dom.ControllingTeam.TeamIndex == Team)
+            Points[Points.Length] = Dom;
+    }
+    if (Points.Length > 0)
+    {
+        Dom = Points[Rand(Points.Length)];
+        Result = Dom.Location;
+        FallbackName = "Owned domination point";
+        return True;
+    }
+    if (bDomMap)
+    {
+        Log("MutTechDirector: emergency fallback FAIL team " $ Team $ " owns no DominationPoint");
+        return False;
+    }
+
+    // Bombing Run: random PlayerStart in the team's own base.
+    if (Level.Game != None && Level.Game.IsA('xBombingRun') && Starts.Length > 0)
+    {
+        Result = Starts[Rand(Starts.Length)].Location;
+        FallbackName = "Bombing Run team spawn";
+        return True;
+    }
+
+    // TDM, Invasion and any other mode: one random spawn for everyone.
+    if (Starts.Length > 0)
+    {
+        Result = Starts[Rand(Starts.Length)].Location;
+        FallbackName = "random PlayerStart";
+        return True;
+    }
+
+    return False;
 }
 
 /**

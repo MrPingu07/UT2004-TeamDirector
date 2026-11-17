@@ -395,23 +395,30 @@ returns early, so the cooldown is not consumed.
   2. `ONSPowerCore` with `DefenderTeamIndex == team`, preferring `bFinalCore`;
   3. `PlayerStart.TeamNumber == team`;
   4. neutral/default start.
-- Find **one group fallback** landing spot around the anchor (18 ring candidates
-  plus an anchor fallback). Each teammate first gets its own distinct spot from
-  the same ring search, skipping spots already assigned in this recall. Only
-  when no free spot remains does that pawn reuse the group fallback, so two or
-  more players share a point and rely on collision transparency to step apart.
-- If the anchor area cannot take a pawn at all (no spot, or `SetLocation`
-  rejects it), fall back to the team's enabled `PlayerStart`s: one player per
-  start, repeating starts only when there are more players than starts.
-- Before moving each pawn, `GrantRecallPass()` stores its collision state and
-  disables collision (`SetCollision(False, False)`), then `FinishRecallPassMove()`
-  restores trace/projectile collision immediately but keeps pawn blocking off.
-  For 3 seconds **every** recalled pawn is collision-transparent, whether it
-  landed alone, stacked, or on a PlayerStart. `MutTechDirector.Tick` restores
-  the saved collision flags when the window expires.
-- `SetLocation` is checked. A pawn that cannot be placed anywhere is left where
-  it was, its grace entry is cancelled, and it does not count as a successful
-  recall (so success feedback is not faked).
+- Preferred: each teammate gets its own distinct ring spot around the anchor,
+  skipping spots already assigned in this recall.
+- If **any** teammate cannot be placed there, abandon individual placement and
+  send the **whole team** to one gametype emergency point:
+  - CTF -> the team flag actor's exact location;
+  - ONS -> the team's power core/node (final core preferred);
+  - DOM / cDOM2 -> one randomly chosen **owned** `DominationPoint`. If the
+    team owns none, this fallback explicitly fails and the Director gets the
+    "Emergency recall failed: no safe team destination." popup; it does not
+    silently substitute a spawn point;
+  - Bombing Run -> one random team-base `PlayerStart`;
+  - TDM / Invasion / other -> one random `PlayerStart` for everyone.
+  This is the mitigation for objectives enclosed in tight geometry (e.g. a
+  flag boxed in on five faces) instead of a silent failure.
+- Fallback pawns get a **5 s** collision-transparency window; normal distinct
+  placements get 3 s.  Before moving each pawn, `GrantRecallPass()` stores its
+  collision state and disables collision (`SetCollision(False, False)`), then
+  `FinishRecallPassMove()` restores trace/projectile collision immediately but
+  keeps pawn blocking off. `MutTechDirector.Tick` restores the saved collision
+  flags when the window expires.
+- Absolute edge: if even the emergency point rejects `SetLocation`, try the
+  team's enabled `PlayerStart`s, then leave that pawn in place and cancel its
+  grace entry. It does not count as a successful recall, so success feedback is
+  never faked.
 - `SetLocation`, zero velocity, `SetPhysics(PHYS_Falling)` for non-vehicles,
   `PlayTeleportEffect(False, True)`.
 - One recall sound cue for the Director.

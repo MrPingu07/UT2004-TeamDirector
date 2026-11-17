@@ -193,11 +193,11 @@ a8da70ba6db1b196143776b62ba2f2d1a50aa89fcef4c6683691fe4325a7c162  DirectorReplic
 f41efe9bc384e338c62d89957f0cb51c0e49642426328fc06f28b4c3937bed09  DirectorTurretBeaconInteraction.uc
 bd2c5e491e1f10da5a151b142b6621ea9184804a2d76088dcf270b4af1726171  DirectorTurretBeaconMessage.uc
 c7524efb89fec707e6b58b7c76eb80e90ea103ecbe9d5366579da063c1838732  MutTechDirectorConfig.uc
-cb8da83b27ff7184b2a3ce28e214edde3a88bcb59c6c485804489ec7c29875f0  MutTechDirector.uc
+28e573c447e64042aa8354691e598fdcd855abb7e8921e7d2eef6a8202ee01b5  MutTechDirector.uc
 ```
 
 Package hash at last build:
-`6c9402730f9ec4aa4f37aac5d34ee264fc59b2910ac823d1928db14bb0871303`.
+`62be5a2b673bc5ea0a75ae185f842ebc9abf3a0af1ba1ec8f5385d2fb0a741e3`.
 
 If source changes, rerun `./tools/build.sh` and update these hashes and
 `prebuilt/BUILD`. Do not compare `.u` hashes across builds: UCC may embed
