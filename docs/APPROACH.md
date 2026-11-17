@@ -400,12 +400,18 @@ returns early, so the cooldown is not consumed.
   the same ring search, skipping spots already assigned in this recall. Only
   when no free spot remains does that pawn reuse the group fallback, so two or
   more players share a point and rely on collision transparency to step apart.
+- If the anchor area cannot take a pawn at all (no spot, or `SetLocation`
+  rejects it), fall back to the team's enabled `PlayerStart`s: one player per
+  start, repeating starts only when there are more players than starts.
 - Before moving each pawn, `GrantRecallPass()` stores its collision state and
   disables collision (`SetCollision(False, False)`), then `FinishRecallPassMove()`
   restores trace/projectile collision immediately but keeps pawn blocking off.
   For 3 seconds **every** recalled pawn is collision-transparent, whether it
-  landed alone or stacked. `MutTechDirector.Tick` restores the saved collision
-  flags when the window expires.
+  landed alone, stacked, or on a PlayerStart. `MutTechDirector.Tick` restores
+  the saved collision flags when the window expires.
+- `SetLocation` is checked. A pawn that cannot be placed anywhere is left where
+  it was, its grace entry is cancelled, and it does not count as a successful
+  recall (so success feedback is not faked).
 - `SetLocation`, zero velocity, `SetPhysics(PHYS_Falling)` for non-vehicles,
   `PlayTeleportEffect(False, True)`.
 - One recall sound cue for the Director.

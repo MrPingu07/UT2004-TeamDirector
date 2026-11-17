@@ -196,6 +196,27 @@ function FinishRecallPassMove(Pawn P)
     }
 }
 
+/** Undo a grace entry when the pawn could not be moved after all. */
+function CancelRecallPass(Pawn P)
+{
+    local int i;
+
+    if (P == None)
+        return;
+
+    for (i = 0; i < RecallPass.Length; i++)
+    {
+        if (RecallPass[i].P == P)
+        {
+            if (!P.bDeleteMe)
+                P.SetCollision(RecallPass[i].bSavedCollideActors,
+                    RecallPass[i].bSavedBlockActors);
+            RecallPass.Remove(i, 1);
+            return;
+        }
+    }
+}
+
 function Mutate(string MutateString, PlayerController Sender)
 {
     if (MutateString ~= "director" || MutateString ~= "techdirector" ||
@@ -1184,7 +1205,14 @@ function bool RecallTeam(DirectorReplicationInfo RI)
     local vector GroupDest;
     local array<vector> UsedSpots;
     local array<vector> NoSpots;
+    local array<PlayerStart> Starts;
+    local array<PlayerStart> NeutralStarts;
+    local PlayerStart PS;
+    local int StartCursor;
+    local int Tries;
     local int i;
+    local bool bUseHome;
+    local bool bMoved;
     local bool bAny;
 
     if (RI == None || RI.DirectorPC == None ||
@@ -1214,50 +1242,116 @@ function bool RecallTeam(DirectorReplicationInfo RI)
     if (TeamPawns.Length == 0)
         return False;
 
-    if (!FindHomeLocation(RI.DirectorTeam, BaseLoc, HomeName))
+    bUseHome = FindHomeLocation(RI.DirectorTeam, BaseLoc, HomeName);
+    if (bUseHome)
+        log("MutTechDirector: RecallTeam home=" $ HomeName $ " BaseLoc=" $ BaseLoc);
+    else
+        log("MutTechDirector: RecallTeam no home location; PlayerStarts are the fallback");
+
+    // Gather this team's PlayerStarts for the hard fallback.  If the map has
+    // no team-tagged starts, use neutral starts.  Multiple players may reuse
+    // the same start when there are fewer starts than teammates.
+    foreach DynamicActors(class'PlayerStart', PS)
     {
-        log("MutTechDirector: RecallTeam FAIL no home location for team " $ RI.DirectorTeam);
+        if (PS == None || !PS.bEnabled)
+            continue;
+        if (PS.TeamNumber == RI.DirectorTeam)
+            Starts[Starts.Length] = PS;
+        else if (PS.TeamNumber == 255)
+            NeutralStarts[NeutralStarts.Length] = PS;
+    }
+    if (Starts.Length == 0)
+        Starts = NeutralStarts;
+
+    log("MutTechDirector: RecallTeam team PlayerStarts available=" $ Starts.Length);
+
+    if (!bUseHome && Starts.Length == 0)
+    {
+        log("MutTechDirector: RecallTeam FAIL no home location and no PlayerStarts");
         return False;
     }
-
-    log("MutTechDirector: RecallTeam home=" $ HomeName $ " BaseLoc=" $ BaseLoc);
 
     // Preferred behaviour: one distinct landing spot per teammate.  Only if
     // the ring has no free spot left do we reuse the group fallback, in which
     // case two or more pawns land on the same point and rely on the 3 s
     // collision transparency to step apart.
-    if (!FindRecallSpot(BaseLoc, TeamPawns[0], 0, TeamPawns.Length, GroupDest, NoSpots))
+    if (bUseHome)
     {
-        GroupDest = BaseLoc;
-        GroupDest.Z = GroupDest.Z + FMax(48.0, TeamPawns[0].CollisionHeight) + 16.0;
-        log("MutTechDirector: RecallTeam no traced spot; using home fallback " $ GroupDest);
+        if (!FindRecallSpot(BaseLoc, TeamPawns[0], 0, TeamPawns.Length, GroupDest, NoSpots))
+        {
+            GroupDest = BaseLoc;
+            GroupDest.Z = GroupDest.Z + FMax(48.0, TeamPawns[0].CollisionHeight) + 16.0;
+            log("MutTechDirector: RecallTeam no traced spot; using home fallback " $ GroupDest);
+        }
+    }
+    else
+    {
+        GroupDest = Starts[0].Location;
     }
     log("MutTechDirector: RecallTeam group fallback=" $ GroupDest);
 
+    StartCursor = 0;
     for (i = 0; i < TeamPawns.Length; i++)
     {
         P = TeamPawns[i];
         if (P == None || P.Health <= 0)
             continue;
 
-        // Find a spot not already given to another recalled teammate.  If the
-        // search is exhausted, fall back to the shared group point.
-        if (FindRecallSpot(BaseLoc, P, i, TeamPawns.Length, Dest, UsedSpots))
-        {
-            UsedSpots[UsedSpots.Length] = Dest;
-            log("MutTechDirector: RecallTeam assigned distinct spot " $ Dest $ " to " $ P);
-        }
-        else
-        {
-            Dest = GroupDest;
-            log("MutTechDirector: RecallTeam no free spot left; sharing group point " $ Dest $ " with " $ P);
-        }
-
         // Drop actor collision BEFORE moving so a shared landing cannot be
         // rejected or push a teammate out of the destination.
         GrantRecallPass(P);
+        bMoved = False;
 
-        P.SetLocation(Dest);
+        // 1) Try a distinct spot around the team anchor.
+        if (bUseHome && FindRecallSpot(BaseLoc, P, i, TeamPawns.Length, Dest, UsedSpots))
+        {
+            bMoved = P.SetLocation(Dest);
+            if (bMoved)
+            {
+                UsedSpots[UsedSpots.Length] = Dest;
+                log("MutTechDirector: RecallTeam assigned distinct spot " $ Dest $ " to " $ P);
+            }
+            else
+            {
+                log("MutTechDirector: RecallTeam spot " $ Dest $ " rejected for " $ P $ "; trying PlayerStarts");
+            }
+        }
+        else if (bUseHome)
+        {
+            log("MutTechDirector: RecallTeam no free spot left for " $ P $ "; trying PlayerStarts");
+        }
+
+        // 2) Hard fallback: this team's PlayerStarts, one per player and
+        //    repeating starts only when there are more players than starts.
+        Tries = 0;
+        while (!bMoved && Starts.Length > 0 && Tries < Starts.Length)
+        {
+            Dest = Starts[StartCursor % Starts.Length].Location;
+            StartCursor++;
+            Tries++;
+            bMoved = P.SetLocation(Dest);
+            if (bMoved)
+                log("MutTechDirector: RecallTeam placed " $ P $ " at PlayerStart " $ Dest);
+            else
+                log("MutTechDirector: RecallTeam PlayerStart " $ Dest $ " rejected for " $ P);
+        }
+
+        // 3) Absolute last resort: share the anchor point.
+        if (!bMoved && bUseHome)
+        {
+            Dest = GroupDest;
+            bMoved = P.SetLocation(Dest);
+            if (bMoved)
+                log("MutTechDirector: RecallTeam shared group point " $ Dest $ " with " $ P);
+        }
+
+        if (!bMoved)
+        {
+            CancelRecallPass(P);
+            log("MutTechDirector: RecallTeam could not place " $ P $ "; leaving it where it was");
+            continue;
+        }
+
         FinishRecallPassMove(P);
         P.Velocity = vect(0,0,0);
         if (Vehicle(P) == None)

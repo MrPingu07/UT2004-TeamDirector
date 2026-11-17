@@ -166,10 +166,12 @@ Slot layout (all cooldowns currently 1.0 s, tuned in
 - **Slot 7**: Cicada/Raptor (`OnslaughtBP.ONSDualAttackCraft` → `Onslaught.ONSAttackCraft`)
 - **Slot 8**: Hover Tank (`Onslaught.ONSHoverTank`)
 - **Slot 9**: Emergency Recall — each living teammate tries to get a distinct
-  landing spot at the team anchor; if no spot is left, the remaining players
-  share the group fallback point. Every recalled pawn gets 3 s of collision
-  transparency (pawn blocking off, trace/projectile collision still on) so
-  stacked players can step apart.
+  landing spot at the team anchor; if none is left, the team's enabled
+  `PlayerStart`s are used (one player per start, repeating if needed), then the
+  shared group point. Every recalled pawn gets 3 s of collision transparency
+  (pawn blocking off, trace/projectile collision still on) so stacked players
+  can step apart. `SetLocation` failures are detected, so a failed placement no
+  longer reports success.
 
 Telefrag mitigation summary:
 - **Selected player**: Forced into driver seat via `KDriverEnter(P)` — cannot be
