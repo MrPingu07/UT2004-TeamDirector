@@ -319,11 +319,6 @@ function PostRender(Canvas C)
     local rotator CamRot;
     local string DisplayName;
     local string PlateText;
-
-    // Two-pass rendering: first pass collects data, second pass draws
-    // highlighted on top of non-highlighted
-    local array<Pawn> HighlightedPawns;
-    local array<Pawn> NormalPawns;
     local int Pass;
 
     if (RI == None || RI.bDeleteMe)
@@ -435,141 +430,19 @@ function PostRender(Canvas C)
     C.GetCameraLocation(CamLoc, CamRot);
     RI.GetFriendlyPawns(Pawns);
 
-    // First pass: collect valid pawns into highlighted/normal arrays
-    HighlightedPawns.Length = 0;
-    NormalPawns.Length = 0;
-
-    for (i = 0; i < Pawns.Length; i++)
-    {
-        P = Pawns[i];
-        if (P == None || P.Health <= 0)
-            continue;
-
-        // Skip driver pawns that are inside vehicles (they're hidden, we draw the vehicle instead)
-        if (P.DrivenVehicle != None)
-            continue;
-
-        Head = P.Location + vect(0,0,60);
-
-        // Skip anything behind the camera.
-        if ((Head - CamLoc) Dot vector(CamRot) <= 0.0)
-            continue;
-
-        Screen = C.WorldToScreen(Head);
-        if (Screen.X < 0.0 || Screen.X > C.ClipX ||
-            Screen.Y < 0.0 || Screen.Y > C.ClipY)
-            continue;
-
-        // Determine display name and drawing style based on pawn type:
-        // - Player (on foot): 3 lines (Name / HP / Shield)
-        // - Vehicle with driver: 3 lines (DriverName / HP / Shield)
-        // - Sentry (DirectorSentinel): 2 lines (Sentry / HP [X/X])
-        // - Other vehicle (empty): 2 lines (VehicleName / HP [X/X])
-
-        V = Vehicle(P);
-        bIsSentry = (DirectorSentinel(P) != None);
-
-        if (V != None)
-        {
-            DriverP = V.Driver;
-            bHasDriver = (DriverP != None);
-
-            if (bHasDriver)
-            {
-                // Fallback chain for vehicle drivers:
-                // 1. Driver pawn's PRI (usually None when in vehicle - UnPossessed clears it)
-                // 2. Driver pawn's Controller's PRI (usually None - controller possesses vehicle)
-                // 3. Driver pawn's DrivenVehicle PRI (vehicle gets controller's PRI when possessed)
-                // 4. Driver pawn's Name (fallback to class name like "2k4xPawn")
-                if (DriverP.PlayerReplicationInfo != None)
-                    DisplayName = DriverP.PlayerReplicationInfo.PlayerName;
-                else if (DriverP.Controller != None && DriverP.Controller.PlayerReplicationInfo != None)
-                    DisplayName = DriverP.Controller.PlayerReplicationInfo.PlayerName;
-                else if (DriverP.DrivenVehicle != None && DriverP.DrivenVehicle.PlayerReplicationInfo != None)
-                    DisplayName = DriverP.DrivenVehicle.PlayerReplicationInfo.PlayerName;
-                else
-                    DisplayName = string(DriverP.Name);
-                NumLines = 3;  // DriverName / HP / Shield
-            }
-            else if (bIsSentry)
-            {
-                // Sentinels are never drivable, always show
-                DisplayName = "Sentry";
-                NumLines = 2;  // Sentry / HP [X/X]
-            }
-            else
-            {
-                // Empty non-sentry vehicle - hide it entirely
-                continue;
-            }
-        }
-        else
-        {
-            // Player on foot
-            bHasDriver = False;
-            if (P.PlayerReplicationInfo != None)
-                DisplayName = P.PlayerReplicationInfo.PlayerName;
-            else if (P.Controller != None && P.Controller.PlayerReplicationInfo != None)
-                DisplayName = P.Controller.PlayerReplicationInfo.PlayerName;
-            else
-                DisplayName = string(P.Name);
-            NumLines = 3;  // Name / HP / Shield
-        }
-
-        // Check if this pawn (or its driver, if vehicle) is the current target
-        CheckV = Vehicle(P);
-        if (CheckV != None && CheckV.Driver != None)
-        {
-            bIsHighlighted = (CheckV.Driver == RI.CurrentTarget);
-        }
-        else
-        {
-            bIsHighlighted = (P == RI.CurrentTarget);
-        }
-
-        // Team colours.  Red team is the warm palette, blue team the cool one;
-        // the fighter currently on the broadcast feed uses the brighter
-        // "selected" variant of its team colour.
-        if (P.GetTeamNum() == 0)
-        {
-            TeamColor.R = 255; TeamColor.G = 0;   TeamColor.B = 0;   TeamColor.A = 255;
-            if (bIsHighlighted)
-            {
-                TeamColor.R = 255; TeamColor.G = 153; TeamColor.B = 51;
-            }
-        }
-        else
-        {
-            TeamColor.R = 51;  TeamColor.G = 102; TeamColor.B = 255; TeamColor.A = 255;
-            if (bIsHighlighted)
-            {
-                TeamColor.R = 51;  TeamColor.G = 204; TeamColor.B = 255;
-            }
-        }
-
-        // Store pawn data for two-pass rendering
-        if (bIsHighlighted)
-            HighlightedPawns[HighlightedPawns.Length] = P;
-        else
-            NormalPawns[NormalPawns.Length] = P;
-    }
-
-    // Second pass: draw normal first, then highlighted on top
+    // Two-layer rendering: draw normal first, then highlighted on top
+    // Layer 0: Non-highlighted
+    // Layer 1: Highlighted (current target or their vehicle)
     for (Pass = 0; Pass < 2; Pass++)
     {
-        if (Pass == 0)
+        for (i = 0; i < Pawns.Length; i++)
         {
-            for (i = 0; i < NormalPawns.Length; i++)
-            {
-                P = NormalPawns[i];
-            }
-        }
-        else
-        {
-            for (i = 0; i < HighlightedPawns.Length; i++)
-            {
-                P = HighlightedPawns[i];
-            if (P == None)
+            P = Pawns[i];
+            if (P == None || P.Health <= 0)
+                continue;
+
+            // Skip driver pawns that are inside vehicles (they're hidden, we draw the vehicle instead)
+            if (P.DrivenVehicle != None)
                 continue;
 
             Head = P.Location + vect(0,0,60);
@@ -583,7 +456,12 @@ function PostRender(Canvas C)
                 Screen.Y < 0.0 || Screen.Y > C.ClipY)
                 continue;
 
-            // Determine NumLines for this pawn
+            // Determine display name and drawing style based on pawn type:
+            // - Player (on foot): 3 lines (Name / HP / Shield)
+            // - Vehicle with driver: 3 lines (DriverName / HP / Shield)
+            // - Sentry (DirectorSentinel): 2 lines (Sentry / HP [X/X])
+            // - Other vehicle (empty): 2 lines (VehicleName / HP [X/X])
+
             V = Vehicle(P);
             bIsSentry = (DirectorSentinel(P) != None);
 
@@ -591,19 +469,50 @@ function PostRender(Canvas C)
             {
                 DriverP = V.Driver;
                 bHasDriver = (DriverP != None);
+
                 if (bHasDriver)
-                    NumLines = 3;
+                {
+                    // Fallback chain for vehicle drivers:
+                    // 1. Driver pawn's PRI (usually None when in vehicle - UnPossessed clears it)
+                    // 2. Driver pawn's Controller's PRI (usually None - controller possesses vehicle)
+                    // 3. Driver pawn's DrivenVehicle PRI (vehicle gets controller's PRI when possessed)
+                    // 4. Driver pawn's Name (fallback to class name like "2k4xPawn")
+                    if (DriverP.PlayerReplicationInfo != None)
+                        DisplayName = DriverP.PlayerReplicationInfo.PlayerName;
+                    else if (DriverP.Controller != None && DriverP.Controller.PlayerReplicationInfo != None)
+                        DisplayName = DriverP.Controller.PlayerReplicationInfo.PlayerName;
+                    else if (DriverP.DrivenVehicle != None && DriverP.DrivenVehicle.PlayerReplicationInfo != None)
+                        DisplayName = DriverP.DrivenVehicle.PlayerReplicationInfo.PlayerName;
+                    else
+                        DisplayName = string(DriverP.Name);
+                    NumLines = 3;  // DriverName / HP / Shield
+                }
                 else if (bIsSentry)
-                    NumLines = 2;
+                {
+                    // Sentinels are never drivable, always show
+                    DisplayName = "Sentry";
+                    NumLines = 2;  // Sentry / HP [X/X]
+                }
                 else
-                    continue; // empty non-sentry - skip
+                {
+                    // Empty non-sentry vehicle - hide it entirely
+                    continue;
+                }
             }
             else
             {
-                NumLines = 3; // Player on foot
+                // Player on foot
+                bHasDriver = False;
+                if (P.PlayerReplicationInfo != None)
+                    DisplayName = P.PlayerReplicationInfo.PlayerName;
+                else if (P.Controller != None && P.Controller.PlayerReplicationInfo != None)
+                    DisplayName = P.Controller.PlayerReplicationInfo.PlayerName;
+                else
+                    DisplayName = string(P.Name);
+                NumLines = 3;  // Name / HP / Shield
             }
 
-            // Check highlight again (CurrentTarget might have changed since first pass)
+            // Check if this pawn (or its driver, if vehicle) is the current target
             CheckV = Vehicle(P);
             if (CheckV != None && CheckV.Driver != None)
             {
@@ -614,7 +523,15 @@ function PostRender(Canvas C)
                 bIsHighlighted = (P == RI.CurrentTarget);
             }
 
-            // Team colours
+            // Skip if not matching current layer
+            if (Pass == 0 && bIsHighlighted)
+                continue;
+            if (Pass == 1 && !bIsHighlighted)
+                continue;
+
+            // Team colours.  Red team is the warm palette, blue team the cool one;
+            // the fighter currently on the broadcast feed uses the brighter
+            // "selected" variant of its team colour.
             if (P.GetTeamNum() == 0)
             {
                 TeamColor.R = 255; TeamColor.G = 0;   TeamColor.B = 0;   TeamColor.A = 255;
@@ -666,8 +583,7 @@ function PostRender(Canvas C)
             }
         }
     }
-    }
-    }
+}
 
 // ---------------------------------------------------------------------------
 // Hotbar helpers
