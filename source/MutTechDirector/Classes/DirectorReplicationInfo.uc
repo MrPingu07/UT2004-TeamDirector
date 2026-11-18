@@ -1077,13 +1077,17 @@ simulated function ClientCloseBooth(optional string NotifyText)
         DirectorPC.myHUD = Spawn(OriginalHUDClass, DirectorPC);
         if (DirectorPC.myHUD != None)
         {
-            log("MutTechDirector: ClientCloseBooth - restored original HUD=" $ OriginalHUDClass);
+            // Restore the original scoreboard class too
+            if (OriginalScoreBoardClass != None)
+                DirectorPC.myHUD.SetScoreBoardClass(OriginalScoreBoardClass);
+            log("MutTechDirector: ClientCloseBooth - restored original HUD=" $ OriginalHUDClass $ " scoreboard=" $ OriginalScoreBoardClass);
         }
         else
         {
             log("MutTechDirector: ClientCloseBooth - FAILED to restore original HUD=" $ OriginalHUDClass);
         }
         OriginalHUDClass = None;
+        OriginalScoreBoardClass = None;
     }
 
     if (DirectorInteractionRef != None)

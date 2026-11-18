@@ -370,8 +370,9 @@ function PostRender(Canvas C)
     White.R = 235; White.G = 240; White.B = 250; White.A = 255;
     Dim.R = 165;   Dim.G = 175;   Dim.B = 185;  Dim.A = 255;
 
-    if (C.SmallFont != None)
-        C.Font = C.SmallFont;
+    // Hotbar, cheatsheet, TeamMates use TinyFont
+    if (C.TinyFont != None)
+        C.Font = C.TinyFont;
     C.FontScaleX = 1.0;
     C.FontScaleY = 1.0;
 
@@ -379,8 +380,8 @@ function PostRender(Canvas C)
     Scale = C.ClipY / 768.0;
 
     C.StrLen("Mg", XL, YL);
-    if (YL < 10.0 * Scale)
-        YL = 12.0 * Scale;
+    if (YL < 8.0 * Scale)
+        YL = 10.0 * Scale;
     LineH = YL + 2.0 * Scale;
 
     // Hide hotbar and cheatsheet while F1 scoreboard is open

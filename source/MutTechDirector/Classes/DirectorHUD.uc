@@ -279,7 +279,7 @@ simulated function DrawSpectatingHud(Canvas C)
     );
     C.Style = ERenderStyle.STY_Normal;
     
-    // Team score counter at top center (hidden during F1) - simple integers only
+    // Team score counter at top center (hidden during F1) - simple integers only, 3x size
     MyHUD = PlayerOwner.myHUD;
     if (PlayerOwner != None && MyHUD != None && !MyHUD.bShowScoreBoard)
     {
@@ -290,6 +290,8 @@ simulated function DrawSpectatingHud(Canvas C)
             BlueScore = string(int(GRI.Teams[1].Score));
             
             C.Font = C.MedFont;
+            C.FontScaleX = 3.0;
+            C.FontScaleY = 3.0;
             C.StrLen(RedScore, RedW, PH);
             C.StrLen(BlueScore, BlueW, PH);
             C.StrLen(" - ", DashW, PH);
@@ -313,6 +315,10 @@ simulated function DrawSpectatingHud(Canvas C)
             C.SetDrawColor(100, 150, 255, 255);
             C.SetPos(TStartX + RedW + DashW, TScoreY);
             C.DrawText(BlueScore);
+            
+            // Reset font scale
+            C.FontScaleX = 1.0;
+            C.FontScaleY = 1.0;
         }
     }
     
