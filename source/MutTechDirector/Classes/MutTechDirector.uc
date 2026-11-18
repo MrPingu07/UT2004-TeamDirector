@@ -796,6 +796,7 @@ function UseAbility(DirectorReplicationInfo RI, int Slot)
     local byte Team;
     local Pawn ActualTarget;
     local Vehicle TargetVehicle;
+    local Vehicle NewVehicle;
 
     if (RI == None || RI.bDeleteMe || !RI.bDirectorActive ||
         RI.DirectorPC == None || RI.DirectorPC.bDeleteMe)
@@ -889,31 +890,37 @@ function UseAbility(DirectorReplicationInfo RI, int Slot)
             break;
 
         case 6:
-            if (!DropVehicle(T, Team, "OnslaughtBP.ONSArtillery", "", 6, RI))
+            NewVehicle = DropVehicle(T, Team, "OnslaughtBP.ONSArtillery", "", 6, RI);
+            if (NewVehicle == None)
             {
                 Notify(RI, "Not enough space.");
                 return;
             }
+            RI.SetTarget(NewVehicle);
             StartCooldown(RI, Slot);
             Notify(RI, "SPMA transmat complete.");
             break;
 
         case 7:
-            if (!DropVehicle(T, Team, "OnslaughtBP.ONSDualAttackCraft", "Onslaught.ONSAttackCraft", 7, RI))
+            NewVehicle = DropVehicle(T, Team, "OnslaughtBP.ONSDualAttackCraft", "Onslaught.ONSAttackCraft", 7, RI);
+            if (NewVehicle == None)
             {
                 Notify(RI, "Not enough space.");
                 return;
             }
+            RI.SetTarget(NewVehicle);
             StartCooldown(RI, Slot);
             Notify(RI, "Light vehicle transmat complete.");
             break;
 
         case 8:
-            if (!DropVehicle(T, Team, "Onslaught.ONSHoverTank", "", 8, RI))
+            NewVehicle = DropVehicle(T, Team, "Onslaught.ONSHoverTank", "", 8, RI);
+            if (NewVehicle == None)
             {
                 Notify(RI, "Not enough space.");
                 return;
             }
+            RI.SetTarget(NewVehicle);
             StartCooldown(RI, Slot);
             Notify(RI, "Heavy asset drop complete.");
             break;
@@ -1069,7 +1076,7 @@ function bool DeploySentinel(Pawn P, byte Team, optional DirectorReplicationInfo
 // Slots 6, 7 & 8: vehicle transmats
 // ---------------------------------------------------------------------------
 
-function bool DropVehicle(Pawn P, byte Team, string VClassName, string VClassFallback, int Slot, optional DirectorReplicationInfo RI)
+function Vehicle DropVehicle(Pawn P, byte Team, string VClassName, string VClassFallback, int Slot, optional DirectorReplicationInfo RI)
 {
     local class<Vehicle> VClass;
     local Vehicle V;
@@ -1092,7 +1099,7 @@ function bool DropVehicle(Pawn P, byte Team, string VClassName, string VClassFal
         log("MutTechDirector: DropVehicle FAIL class not found");
         if (RI != None)
             Notify(RI, "Vehicle class not found!");
-        return False;
+        return None;
     }
     log("MutTechDirector: DropVehicle PASS class VClass=" $ VClass);
 
@@ -1127,7 +1134,7 @@ function bool DropVehicle(Pawn P, byte Team, string VClassName, string VClassFal
             RI.SetCooldown(Slot, 0.0);
             Notify(RI, "Spawn failed; cooldown refunded.");
         }
-        return False;
+        return None;
     }
     log("MutTechDirector: DropVehicle PASS spawn V=" $ V);
 
@@ -1147,7 +1154,7 @@ function bool DropVehicle(Pawn P, byte Team, string VClassName, string VClassFal
     // automated sentinel turret is made walk-through (see DeploySentinel).
     DeployFX(Spot, Team, 2);
     log("MutTechDirector: DropVehicle SUCCESS vehicle spawned");
-    return True;
+    return V;
 }
 
 /**
