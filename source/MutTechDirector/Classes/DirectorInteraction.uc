@@ -139,11 +139,6 @@ function Tick(float DeltaTime)
     PC.TeamBeaconMaxDist = 0.0;
     PC.TeamBeaconPlayerInfoMaxDist = 0.0;
 
-    if (bZoomIn)
-        ZoomDistance -= ZoomSpeed * DeltaTime;
-    if (bZoomOut)
-        ZoomDistance += ZoomSpeed * DeltaTime;
-
     // Different zoom ranges and speeds for vehicles vs on-foot
     // Both go 0-100% in 5 seconds
     CheckV = Vehicle(RI.CurrentTarget);
@@ -159,6 +154,11 @@ function Tick(float DeltaTime)
         MaxZoom = 3000.0;
         ZoomSpeed = 576.0;   // (3000 - 120) / 5
     }
+
+    if (bZoomIn)
+        ZoomDistance -= ZoomSpeed * DeltaTime;
+    if (bZoomOut)
+        ZoomDistance += ZoomSpeed * DeltaTime;
 
     ZoomDistance = FClamp(ZoomDistance, 120.0, MaxZoom);
 
