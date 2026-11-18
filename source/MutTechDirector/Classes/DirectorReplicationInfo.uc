@@ -96,6 +96,11 @@ var float TeamAccum;
 /** Accumulator for the 2 s turret list refresh. */
 var float TurretAccum;
 
+/** Hidden actor at beacon position (vehicle + 60 Z) for camera orbit.
+ *  When target is a vehicle with driver, camera orbits this actor instead
+ *  of the vehicle center, so beacon stays fixed on screen. */
+var Actor BeaconOrbitActor;
+
 /** True while the 5 s entry delay is running; the booth is not online yet. */
 var bool bBoothPending;
 
@@ -268,6 +273,13 @@ simulated event Destroyed()
     {
         DirectorInteractionRef.Cleanup();
         DirectorInteractionRef = None;
+    }
+
+    // Clean up beacon orbit actor
+    if (BeaconOrbitActor != None && !BeaconOrbitActor.bDeleteMe)
+    {
+        BeaconOrbitActor.Destroy();
+        BeaconOrbitActor = None;
     }
 
     Super.Destroyed();
@@ -458,6 +470,14 @@ function AbortPendingEntry()
 {
     bBoothPending = False;
     bDirectorActive = False;
+    
+    // Clean up beacon orbit actor
+    if (BeaconOrbitActor != None && !BeaconOrbitActor.bDeleteMe)
+    {
+        BeaconOrbitActor.Destroy();
+        BeaconOrbitActor = None;
+    }
+    
     if (DirectorMutator != None)
         DirectorMutator.RemoveDirectorRI(Self);
     Destroy();
@@ -512,6 +532,14 @@ function EndDirectorMode()
     bHealing = False;
     bPendingCycle = False;
     ClearBerserk();
+    
+    // Clean up beacon orbit actor
+    if (BeaconOrbitActor != None && !BeaconOrbitActor.bDeleteMe)
+    {
+        BeaconOrbitActor.Destroy();
+        BeaconOrbitActor = None;
+    }
+    
     ClientCloseBooth();
     Destroy();
 }
@@ -575,19 +603,58 @@ function SetCooldown(int Slot, float Value)
 // Fighter feed
 // ---------------------------------------------------------------------------
 
-/** Point the owning controller at a living teammate (or at itself if None). */
+/** Point the owning controller at a living teammate (or at itself if None).
+ *  If target is a vehicle with driver, create a hidden actor at beacon position
+ *  (vehicle + 60 Z) and make it the view target, so camera orbits the beacon
+ *  position instead of vehicle center. */
 function SetTarget(Pawn NewTarget)
 {
+    local Vehicle TargetVehicle;
+    local Actor NewBeaconActor;
+
     if (!bDirectorActive || bDeleteMe || DirectorPC == None ||
         DirectorPC.bDeleteMe)
         return;
+
+    // Clean up existing beacon actor
+    if (BeaconOrbitActor != None && !BeaconOrbitActor.bDeleteMe)
+    {
+        BeaconOrbitActor.Destroy();
+        BeaconOrbitActor = None;
+    }
 
     CurrentTarget = NewTarget;
 
     if (NewTarget != None)
     {
-        DirectorPC.SetViewTarget(NewTarget);
-        DirectorPC.ClientSetViewTarget(NewTarget);
+        TargetVehicle = Vehicle(NewTarget);
+        if (TargetVehicle != None && TargetVehicle.Driver != None)
+        {
+            // Create hidden actor at beacon position (vehicle + 60 Z)
+            NewBeaconActor = Spawn(class'Actor', Self,, TargetVehicle.Location + vect(0,0,60), rot(0,0,0));
+            if (NewBeaconActor != None)
+            {
+                NewBeaconActor.bHidden = True;
+                BeaconOrbitActor = NewBeaconActor;
+                
+                // Make beacon actor the view target so camera orbits beacon position
+                DirectorPC.SetViewTarget(BeaconOrbitActor);
+                DirectorPC.ClientSetViewTarget(BeaconOrbitActor);
+            }
+            else
+            {
+                // Fallback to vehicle
+                DirectorPC.SetViewTarget(NewTarget);
+                DirectorPC.ClientSetViewTarget(NewTarget);
+            }
+        }
+        else
+        {
+            // On-foot target or vehicle without driver
+            DirectorPC.SetViewTarget(NewTarget);
+            DirectorPC.ClientSetViewTarget(NewTarget);
+        }
+
         DirectorPC.bBehindView = True;
         DirectorPC.ClientSetBehindView(True);
     }
@@ -655,6 +722,7 @@ function ServerLeaveDirector()
 event Tick(float DeltaTime)
 {
     local Pawn Next;
+    local Vehicle TargetVehicle;
     local float HealRate;
     local float PulseInterval;
 
@@ -731,6 +799,29 @@ event Tick(float DeltaTime)
     if (Cooldown7 > 0.0) Cooldown7 = FMax(0.0, Cooldown7 - DeltaTime);
     if (Cooldown8 > 0.0) Cooldown8 = FMax(0.0, Cooldown8 - DeltaTime);
     if (Cooldown9 > 0.0) Cooldown9 = FMax(0.0, Cooldown9 - DeltaTime);
+
+    // Update beacon orbit actor position to track vehicle + 60 Z offset.
+    // This keeps the camera orbiting the beacon position (not vehicle center).
+    if (BeaconOrbitActor != None && !BeaconOrbitActor.bDeleteMe && CurrentTarget != None)
+    {
+        TargetVehicle = Vehicle(CurrentTarget);
+        if (TargetVehicle != None && TargetVehicle.Driver != None)
+        {
+            BeaconOrbitActor.SetLocation(TargetVehicle.Location + vect(0,0,60));
+        }
+        else
+        {
+            // Target is no longer a vehicle with driver; clean up beacon actor
+            BeaconOrbitActor.Destroy();
+            BeaconOrbitActor = None;
+            // Restore view target to actual target (if still valid)
+            if (CurrentTarget != None && !CurrentTarget.bDeleteMe)
+            {
+                DirectorPC.SetViewTarget(CurrentTarget);
+                DirectorPC.ClientSetViewTarget(CurrentTarget);
+            }
+        }
+    }
 
     // Nanite Med-Surge: configurable HP/sec (default 2), applied in pulses so the
     // displayed health changes smoothly without a per-frame network storm.

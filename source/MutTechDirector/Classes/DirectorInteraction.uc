@@ -345,9 +345,6 @@ function PostRender(Canvas C)
     local string DisplayName;
     local string PlateText;
     local int Pass;
-    local bool bFixedPosition;
-    local float FixedX;
-    local float FixedY;
 
     if (RI == None || RI.bDeleteMe)
     {
@@ -578,50 +575,28 @@ function PostRender(Canvas C)
                 }
             }
 
-            // Special case: highlighted player inside a vehicle -> draw at fixed screen position
-            // Crosshair is at absolute middle (C.ClipX*0.5, C.ClipY*0.5)
-            // Draw beacon with 1 LineH margin above crosshair
-            bFixedPosition = False;
-            if (bIsHighlighted && V != None && bHasDriver)
-            {
-                bFixedPosition = True;
-                FixedX = C.ClipX * 0.5;
-                FixedY = C.ClipY * 0.5 - LineH; // one line margin above crosshair
-            }
-
             // Draw based on type - with screen bounds check to prevent wrapping
+            // Vehicle beacons now draw at their actual 3D position (beacon actor orbits camera)
             if (NumLines == 3)
             {
                 // 3 lines: Name / HP / Shield
                 PlateText = DisplayName;
                 C.StrLen(PlateText, XL, YL);
-                if (bFixedPosition)
-                {
-                    DrawLine(C, FixedX - XL * 0.5, FixedY, PlateText, TeamColor);
-                }
-                else if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
                 {
                     DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 3.0 * LineH, PlateText, TeamColor);
                 }
 
                 PlateText = "HP [" $ P.Health $ "]";
                 C.StrLen(PlateText, XL, YL);
-                if (bFixedPosition)
-                {
-                    DrawLine(C, FixedX - XL * 0.5, FixedY + LineH, PlateText, TeamColor);
-                }
-                else if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
                 {
                     DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
                 }
 
                 PlateText = "Shield [" $ int(P.ShieldStrength) $ "]";
                 C.StrLen(PlateText, XL, YL);
-                if (bFixedPosition)
-                {
-                    DrawLine(C, FixedX - XL * 0.5, FixedY + 2.0 * LineH, PlateText, TeamColor);
-                }
-                else if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
                 {
                     DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
                 }
@@ -631,22 +606,14 @@ function PostRender(Canvas C)
                 // 2 lines: Sentry/VehicleName / HP [X/X]
                 PlateText = DisplayName;
                 C.StrLen(PlateText, XL, YL);
-                if (bFixedPosition)
-                {
-                    DrawLine(C, FixedX - XL * 0.5, FixedY, PlateText, TeamColor);
-                }
-                else if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
                 {
                     DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
                 }
 
                 PlateText = "HP [" $ P.Health $ "/" $ int(P.HealthMax) $ "]";
                 C.StrLen(PlateText, XL, YL);
-                if (bFixedPosition)
-                {
-                    DrawLine(C, FixedX - XL * 0.5, FixedY + LineH, PlateText, TeamColor);
-                }
-                else if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
                 {
                     DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
                 }
