@@ -421,6 +421,9 @@ simulated function DrawSpectatingHud(Canvas C)
 
     // Center text vertically in banner
     C.Font = C.MedFont;
+    // Feed text at twice the normal MedFont size.
+    C.FontScaleX = 2.0;
+    C.FontScaleY = 2.0;
     C.StrLen("X", Dummy, PH);  // PH = line height for MedFont
     TextYPos = BannerY + (BannerHeight - PH) * 0.5;
 
@@ -473,6 +476,10 @@ simulated function DrawSpectatingHud(Canvas C)
         C.DrawTileStretched(material'InterfaceContent.SquareBoxA', 8.0 * Scale, PH);
         C.Style = OldStyle;
     }
+
+    // Restore the HUD's normal text scale for anything drawn after the banner.
+    C.FontScaleX = 1.0;
+    C.FontScaleY = 1.0;
 
 }
 defaultproperties

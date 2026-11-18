@@ -185,8 +185,9 @@ server, map and team names. A player named `xX_Sn1p3r_Xx` is shown as
 - Unknown tokens are left untouched and appear literally.
 - Every token has a defined fallback, so a message never becomes empty just
   because a value is unavailable.
-- Random tokens (`$RANDOM1_25`, `$RANDOM25_50`, `$RANDOM75_100`) are resolved
-  once per message, alongside the live values, and differ per client.
+- Random tokens (`$RANDOM1_9`, `$RANDOM1_25`, `$RANDOM25_50`,
+  `$RANDOM75_100`) are resolved once per message, alongside the live values,
+  and differ per client.
 - Replacement is longest-first. `$TOPFRAGGERSCORE` is replaced before
   `$TOPFRAGGER`, otherwise the shorter token would eat its prefix. Any new
   token that is a prefix of another must follow the same rule.
@@ -221,11 +222,13 @@ integers.
 | --- | --- | --- |
 | `$TOPFRAGGER` | Global match leader name | Highest `PRI.Score` among non-spectators; ties go to the first entry in `PRIArray`; fallback `Someone` |
 | `$TOPFRAGGERSCORE` | Global leader's score | Score of that same player; fallback `lots of` |
-| `$TOPTEAMFRAGGER` | Leader of the Director's team | Highest score filtered by `PRI.Team.TeamIndex == Director team`; fallback `Someone` |
-| `$TOPTEAMNAME` | Display name of the Director's team | `GRI.Teams[team].TeamName`; `Red`/`Blue` if the name is blank; fallback `Our Team` |
+| `$TOPTEAMFRAGGER` | Leader of the **Director's own team** | Highest score filtered by `PRI.Team.TeamIndex == Director team`; fallback `Someone` |
+| `$TOPTEAMNAME` | Display name of the **Director's own team** | `GRI.Teams[directorTeam].TeamName`; `Red`/`Blue` if the name is blank; fallback `Our Team` |
 | `$REDVAL` | Red team aggregate | `GRI.Teams[0].Score`; `0` if the slot is empty |
 | `$BLUEVAL` | Blue team aggregate | `GRI.Teams[1].Score`; `0` if the slot is empty |
 | `$LEADTEAM` | Team currently ahead | Compares the two team scores; `Red`, `Blue`, or `Neither` |
+| `$LEADTEAMNAME` | Display name of the **leading team** | `GRI.Teams[lead].TeamName`; `Red`/`Blue` if blank; `Neither` on a tie/no teams |
+| `$LEADTEAMFRAGGER` | Top scorer on the **leading team** | Highest score filtered by the leading team index; `Someone` on a tie/no teams |
 | `$TOTALFRAGS` | Combined score of all active players | Sum of every non-spectator `PRI.Score`; fallback `0` |
 | `$HIGHESTSCORE` | Peak score on the board | Highest non-spectator `PRI.Score` as an integer; `0` if nobody is on the board |
 | `$LEADMARGIN` | First-place gap over second place | Highest score minus second-highest; `0` when fewer than two combatants or when tied |
@@ -239,8 +242,12 @@ Team-index notes:
   `PlayerOwner.PlayerReplicationInfo.Team.TeamIndex`, which remains valid while
   the Director is in the booth because the mutator never removes them from the
   team.
-- `$TOPTEAMNAME` and `$TOPTEAMFRAGGER` both refer to that team. Neither means
-  "the team currently leading"; use `$LEADTEAM` for that.
+- `$TOPTEAMNAME` and `$TOPTEAMFRAGGER` refer to the **Director's own team**,
+  regardless of who is winning. They are not global and not "the top team".
+  Use `$LEADTEAMNAME` / `$LEADTEAMFRAGGER` for the team that is currently
+  ahead, and `$TOPFRAGGER` for the global score leader.
+- Because `$LEADTEAM` is a prefix of both new tokens, `$LEADTEAMNAME` and
+  `$LEADTEAMFRAGGER` are replaced first in `ExpandTokens()`.
 - Bots participate in every standings token.
 
 ### 5.5 Time and status
@@ -263,6 +270,7 @@ typewriter cycle.
 
 | Token | Prints |
 | --- | --- |
+| `$RANDOM1_9` | Random integer from 1 to 9 inclusive |
 | `$RANDOM1_25` | Random integer from 1 to 25 inclusive |
 | `$RANDOM25_50` | Random integer from 25 to 50 inclusive |
 | `$RANDOM75_100` | Random integer from 75 to 100 inclusive |
@@ -270,11 +278,11 @@ typewriter cycle.
 Randomness is local to each client, not replicated: two Directors watching the
 same message can see different values. That matches the cosmetic nature of the
 feed. The ranges deliberately overlap at 25; `25` can come from either of the
-first two tokens.
+25-range tokens.
 
 ```text
 TONIGHT'S CROWD: $RANDOM75_100 PERCENT HERE FOR THE VIOLENCE.
-ODDS OF SURVIVAL: $RANDOM1_25 PERCENT. ODDS OF STYLE: $RANDOM25_50.
+ODDS OF SURVIVAL: $RANDOM1_9 OUT OF 9. ODDS OF STYLE: $RANDOM25_50.
 ```
 
 ---
@@ -442,9 +450,9 @@ Expected; see §10.
   with unusual control sequences will render exactly as the game would render
   it.
 - **No width filter.** See §4.3.
-- **Random tokens are per client.** `$RANDOM1_25`, `$RANDOM25_50` and
-  `$RANDOM75_100` are rolled locally when the message is selected, so two
-  clients can show different numbers for the same feed entry.
+- **Random tokens are per client.** `$RANDOM1_9`, `$RANDOM1_25`,
+  `$RANDOM25_50` and `$RANDOM75_100` are rolled locally when the message is
+  selected, so two clients can show different numbers for the same feed entry.
 
 ---
 

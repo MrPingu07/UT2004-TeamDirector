@@ -52,6 +52,7 @@ static function string ExpandTokens(string Msg, PlayerController PC)
     local GameReplicationInfo GRI;
     local PlayerReplicationInfo Top;
     local PlayerReplicationInfo TopTeam;
+    local int LeadIndex;
 
     if (Msg == "")
         return Msg;
@@ -87,6 +88,13 @@ static function string ExpandTokens(string Msg, PlayerController PC)
         ReplaceText(Msg, "$TOPTEAMFRAGGER", TopTeam.PlayerName);
 
     ReplaceText(Msg, "$TOPTEAMNAME", GetTeamName(GRI, PC));
+    LeadIndex = GetLeadTeamIndex(GRI);
+    ReplaceText(Msg, "$LEADTEAMNAME", GetTeamNameByIndex(GRI, LeadIndex));
+    if (LeadIndex < 0)
+        ReplaceText(Msg, "$LEADTEAMFRAGGER", FALLBACK_NAME);
+    else
+        ReplaceText(Msg, "$LEADTEAMFRAGGER",
+                    GetPlayerName(FindTopPlayer(GRI, LeadIndex)));
     ReplaceText(Msg, "$MAPNAME", GetMapName(PC));
     ReplaceText(Msg, "$SERVERNAME", GetServerName(GRI));
     ReplaceText(Msg, "$PLAYERCOUNT", string(GetPlayerCount(GRI)));
@@ -101,6 +109,7 @@ static function string ExpandTokens(string Msg, PlayerController PC)
     ReplaceText(Msg, "$MATCHSTATUS", GetMatchStatus(GRI));
     ReplaceText(Msg, "$TIMEELAPSED", FormatClock(GetElapsedTime(GRI)));
     ReplaceText(Msg, "$TIMEREMAINING", GetTimeRemaining(GRI));
+    ReplaceText(Msg, "$RANDOM1_9", string(RollRange(1, 9)));
     ReplaceText(Msg, "$RANDOM1_25", string(RollRange(1, 25)));
     ReplaceText(Msg, "$RANDOM25_50", string(RollRange(25, 50)));
     ReplaceText(Msg, "$RANDOM75_100", string(RollRange(75, 100)));
@@ -296,14 +305,23 @@ static function float GetTeamScore(GameReplicationInfo GRI, int TeamIndex)
     return GRI.Teams[TeamIndex].Score;
 }
 
-/** Display name of the Director's team; Red/Blue when TeamName is blank. */
+/** Display name of the Director's own team; Red/Blue when TeamName is blank. */
 static function string GetTeamName(GameReplicationInfo GRI, PlayerController PC)
 {
-    local int TeamIndex;
+    return GetTeamNameByIndex(GRI, GetDirectorTeam(PC));
+}
 
-    TeamIndex = GetDirectorTeam(PC);
-    if (GRI == None || TeamIndex < 0 || TeamIndex > 1 ||
-        GRI.Teams[TeamIndex] == None)
+/**
+ * Display name for an explicit team slot: GRI.Teams[i].TeamName, or Red/Blue
+ * when that name is blank.  TeamIndex < 0 means no single leader (tie or no
+ * replicated teams) and returns "Neither", matching $LEADTEAM.
+ */
+static function string GetTeamNameByIndex(GameReplicationInfo GRI, int TeamIndex)
+{
+    if (TeamIndex < 0)
+        return "Neither";
+
+    if (GRI == None || TeamIndex > 1 || GRI.Teams[TeamIndex] == None)
         return FALLBACK_TEAM;
 
     if (GRI.Teams[TeamIndex].TeamName != "")
@@ -315,20 +333,45 @@ static function string GetTeamName(GameReplicationInfo GRI, PlayerController PC)
     return "Blue";
 }
 
-static function string GetLeadTeam(GameReplicationInfo GRI)
+/** Index of the team with the higher score, or -1 when tied/unavailable. */
+static function int GetLeadTeamIndex(GameReplicationInfo GRI)
 {
     local float Red;
     local float Blue;
+
+    if (GRI == None)
+        return -1;
 
     Red = GetTeamScore(GRI, 0);
     Blue = GetTeamScore(GRI, 1);
 
     if (Red > Blue)
-        return "Red";
+        return 0;
     if (Blue > Red)
+        return 1;
+
+    return -1;
+}
+
+static function string GetLeadTeam(GameReplicationInfo GRI)
+{
+    local int TeamIndex;
+
+    TeamIndex = GetLeadTeamIndex(GRI);
+    if (TeamIndex == 0)
+        return "Red";
+    if (TeamIndex == 1)
         return "Blue";
 
     return "Neither";
+}
+
+/** PlayerName of a PRI, or the standard non-empty fallback. */
+static function string GetPlayerName(PlayerReplicationInfo PRI)
+{
+    if (PRI == None)
+        return FALLBACK_NAME;
+    return PRI.PlayerName;
 }
 
 /** Combined scoreboard points of every non-spectator. */
