@@ -287,8 +287,23 @@ simulated function DrawSpectatingHud(Canvas C)
     
     // Gap = 160 px = 2s pause at 80 px/s
     Gap = 160.0;
-    Period = TextWidth + Gap;
-    TextX = -(Level.TimeSeconds * 80.0 % Period);
+    Period = TextWidth + C.ClipX + Gap;
+    
+    ScrollOffset = (Level.TimeSeconds * ScrollSpeed) % Period;
+    
+    // Travel phase: TextX goes from C.ClipX down to -TextWidth (distance = TextWidth + C.ClipX)
+    // Pause phase: stays at -TextWidth for Gap distance
+    if (ScrollOffset < TextWidth + C.ClipX)
+    {
+        // Travel phase: TextX moves from C.ClipX to -TextWidth
+        TextX = C.ClipX - ScrollOffset;
+    }
+    else
+    {
+        // Pause phase: text fully off-screen left
+        TextX = -TextWidth;
+    }
+    
     TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
 
     // Draw scrolling text with single copy + pause gap
