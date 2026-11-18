@@ -46,21 +46,19 @@ simulated function DrawCustomBeacon(Canvas C, Pawn P, float ScreenLocX, float Sc
 }
 
 /**
- * Override the main HUD drawing function to prevent the stock HUD from
- * drawing anything we don't want (crosshair, spectated player info, etc.).
- * DirectorInteraction handles all Director-specific drawing via its own
- * PostRender (which runs separately from the HUD's DrawHud).
+ * Override the main HUD drawing function to restore vanilla HUD elements
+ * (flag/score counters, F1 match summary, chat feed) while keeping our
+ * custom beacon/nameplate drawing in DirectorInteraction.PostRender.
  */
 simulated function DrawHud(Canvas C)
 {
-    // Intentionally empty: we want a completely clean slate.
-    // The DirectorInteraction attached to the DirectorPC will draw:
-    //   - Top-left hotbar
-    //   - Top-right cheatsheet
-    //   - Bottom-right TeamMates counter
-    //   - Friendly nameplates (Name / HP / Shield)
-    //   - Turret beacons (Sentinel(n) / HP [X/X])
-    // All through Canvas.DrawText with full control over position and style.
+    // Call Super to restore vanilla HUD elements:
+    // - Flag/score counters at top
+    // - F1 match summary
+    // - Crosshair, weapon info, etc.
+    // Our custom elements (hotbar, cheatsheet, TeamMates counter, nameplates)
+    // are drawn by DirectorInteraction.PostRender separately.
+    Super.DrawHud(C);
 }
 
 /**
@@ -84,10 +82,11 @@ simulated function DrawMessage(Canvas C, int i, float PosX, float PosY, out floa
 /**
  * Custom spectator banner replacing the native "Now Viewing..." banner.
  * Draws a custom banner at the bottom with:
- * - UT2004 logo (front layer)
+ * - Unreal "U" logo at left margin
  * - Dark transparent horizontal band spanning screen width
  * - Team-colored stripes at top and bottom edges
- * - Custom scrolling text area in the middle
+ * - Custom scrolling text area (3x larger) in the middle
+ * Chat feed is drawn first via DisplayLocalMessages at its native position.
  */
 simulated function DrawSpectatingHud(Canvas C)
 {
@@ -113,7 +112,10 @@ simulated function DrawSpectatingHud(Canvas C)
     local PlayerReplicationInfo TargetPRI;
     local float TextY;
     
-    // Don't draw if no valid target or not spectating a teammate
+    // First, draw the native chat feed at its native position (bottom of screen)
+    DisplayLocalMessages(C);
+    
+    // Don't draw our custom banner if no valid target or not spectating a teammate
     if (PlayerOwner == None || PlayerOwner.ViewTarget == None)
         return;
     
@@ -141,7 +143,7 @@ simulated function DrawSpectatingHud(Canvas C)
         TeamColor.R = 100; TeamColor.G = 150; TeamColor.B = 255; TeamColor.A = 255;
     }
     
-    // Banner dimensions
+    // Banner dimensions - keep at bottom
     BannerHeight = 80.0;
     BannerY = C.ClipY - BannerHeight;
     
@@ -160,33 +162,37 @@ simulated function DrawSpectatingHud(Canvas C)
     C.SetPos(0, BannerY + BannerHeight - 3.0);
     C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, 3.0);
     
-    // UT2004 logo (centered, front layer)
-    LogoSize = 64.0;
-    LogoX = (C.ClipX - 64.0) * 0.5;
-    LogoY = BannerY + (80.0 - 64.0) * 0.5;
+    // Unreal "U" logo at LEFT margin (front layer)
+    LogoSize = 48.0;
+    LogoX = 16.0;  // Left margin
+    LogoY = BannerY + (BannerHeight - LogoSize) * 0.5;
     
-    // Draw logo
+    // Draw Unreal "U" logo
     C.Style = ERenderStyle.STY_Alpha;
     C.SetDrawColor(255, 255, 255, 255);
     C.SetPos(LogoX, LogoY);
     C.DrawTile(
-        Texture'InterfaceContent.Logos.Logo',
-        64.0, 64.0,
+        Texture'InterfaceContent.Logos.Logo',  // UT2004/Unreal logo texture
+        48.0, 48.0,
         0, 0,
         256, 256
     );
     C.Style = ERenderStyle.STY_Normal;
     
-    // Custom scrolling text area
+    // Custom scrolling text area (3x larger text)
     if (TeamNum == 0)
         TeamName = "RED";
     else
         TeamName = "BLUE";
     ScrollText = "TECHNICAL DIRECTOR MODE  |  SPECTATING: " $ TargetPRI.PlayerName $ "  |  TEAM: " $ TeamName $ "  |  PRESS [B] TO EXIT BOOTH";
     
-    // Scrolling text animation
-    C.Font = C.SmallFont;
+    // Scrolling text animation - use larger font (3x bigger via MedFont instead of SmallFont)
+    C.Font = C.MedFont;  // 3x larger than SmallFont
     C.StrLen(ScrollText, TextWidth, TextHeight);
+    
+    // Scrolling text animation
+    ScrollSpeed = 80.0; // pixels per second
+    ScrollOffset = (Level.TimeSeconds * 80.0) % (TextWidth + C.ClipX);
     
     TextX = C.ClipX - (Level.TimeSeconds * 80.0 % (TextWidth + C.ClipX));
     TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
