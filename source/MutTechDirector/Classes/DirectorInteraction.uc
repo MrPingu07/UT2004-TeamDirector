@@ -729,10 +729,11 @@ function float TextWidth(Canvas C, string S)
 
 /**
  * Shared band scale used by the TeamMates counter.
- *   0-25%  red     (bad)
- *   25-50% yellow
- *   50-75% orange
- *   75-100% green  (good)
+ *   0-20%  red   (bad)
+ *   20-40% orange
+ *   40-60% yellow
+ *   60-80% lime
+ *   80-100% green  (good)
  * "Dead" feeds 1 - ratio through the same scale, which inverts it.
  */
 function color RatioColor(float R)
@@ -741,21 +742,25 @@ function color RatioColor(float R)
 
     Col.A = 255;
 
-    if (R <= 0.25)
+    if (R <= 0.20)
     {
-        Col.R = 255; Col.G = 72;  Col.B = 72;
+        Col.R = 255; Col.G = 72;  Col.B = 72;   // Red
     }
-    else if (R <= 0.50)
+    else if (R <= 0.40)
     {
-        Col.R = 255; Col.G = 220; Col.B = 60;
+        Col.R = 255; Col.G = 140; Col.B = 40;  // Orange
     }
-    else if (R <= 0.75)
+    else if (R <= 0.60)
     {
-        Col.R = 255; Col.G = 140; Col.B = 40;
+        Col.R = 255; Col.G = 220; Col.B = 60;  // Yellow
+    }
+    else if (R <= 0.80)
+    {
+        Col.R = 200; Col.G = 255; Col.B = 0;   // Lime
     }
     else
     {
-        Col.R = 70;  Col.G = 255; Col.B = 110;
+        Col.R = 70;  Col.G = 255; Col.B = 110; // Green
     }
 
     return Col;
