@@ -122,6 +122,8 @@ var transient int AttachTries;
 
 /** Original HUD class, saved on the client so we can restore it on exit. */
 var transient class<HUD> OriginalHUDClass;
+/** Original HUD's ScoreBoard class, saved so we can restore it on the new HUD. */
+var transient class<Scoreboard> OriginalScoreBoardClass;
 
 // ---------------------------------------------------------------------------
 // Replication
@@ -369,15 +371,22 @@ simulated function ClientActivateBooth()
         return;
     }
 
-    // Save the original HUD class so we can restore it on exit.
+    // Save the original HUD class and its ScoreBoard class so we can restore both on exit.
     OriginalHUDClass = DirectorPC.myHUD.Class;
+    if (DirectorPC.myHUD.ScoreBoard != None)
+        OriginalScoreBoardClass = DirectorPC.myHUD.ScoreBoard.Class;
+    else
+        OriginalScoreBoardClass = None;
 
     // Spawn and set the custom Director HUD.
     NewHUD = Spawn(class'DirectorHUD', DirectorPC);
     if (NewHUD != None)
     {
         DirectorPC.myHUD = NewHUD;
-        log("MutTechDirector: ClientActivateBooth - swapped to DirectorHUD, saved original=" $ OriginalHUDClass $ " oldHUD=" $ OriginalHUDClass);
+        // Give the new HUD the same scoreboard class the original had.
+        if (OriginalScoreBoardClass != None)
+            NewHUD.SetScoreBoardClass(OriginalScoreBoardClass);
+        log("MutTechDirector: ClientActivateBooth - swapped to DirectorHUD, originalHUD=" $ OriginalHUDClass $ " scoreboard=" $ OriginalScoreBoardClass $ " newHUD.ScoreBoard=" $ NewHUD.ScoreBoard); // REMOVE: debug
     }
     else
     {
