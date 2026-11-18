@@ -101,6 +101,7 @@ function Tick(float DeltaTime)
 {
     local float Radius;
     local float MaxZoom;
+    local float MinZoom;
     local float ZoomSpeed;
     local Vehicle CheckV;
     local bool bIsVehicle;
@@ -147,11 +148,13 @@ function Tick(float DeltaTime)
     if (bIsVehicle)
     {
         MaxZoom = 15000.0;
-        ZoomSpeed = 4960.0;  // (15000 - 120) / 3
+        MinZoom = 5000.0;
+        ZoomSpeed = 3333.0;  // (15000 - 5000) / 3
     }
     else
     {
         MaxZoom = 3000.0;
+        MinZoom = 120.0;
         ZoomSpeed = 960.0;   // (3000 - 120) / 3
     }
 
@@ -160,7 +163,7 @@ function Tick(float DeltaTime)
     if (bZoomOut)
         ZoomDistance += ZoomSpeed * DeltaTime;
 
-    ZoomDistance = FClamp(ZoomDistance, 120.0, MaxZoom);
+    ZoomDistance = FClamp(ZoomDistance, MinZoom, MaxZoom);
 
     // Use a fixed reference radius (40) so zoom distance always represents
     // world-space distance regardless of target size.
