@@ -334,4 +334,7 @@ defaultproperties
     bShowCrosshair=False
     bShowRadar=False
     bShowVehicleNames=False  // Redundant with DrawVehicleName override, but explicit
+    // Match HudBDeathMatch so console chat (DisplayMessages) sits above the banner
+    ConsoleMessagePosX=0.005000
+    ConsoleMessagePosY=0.825000
 }
