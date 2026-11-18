@@ -85,8 +85,9 @@ inherit from `TeamGame`.
 ## Installation (players)
 
 1. Copy `prebuilt/System/MutTechDirector.u`,
-   `prebuilt/System/MutTechDirector.ucl` (if present) and
-   `install/MutTechDirector.int` into `UT2004/System/`.
+   `prebuilt/System/MutTechDirector.ucl` (if present),
+   `install/MutTechDirector.int` and `install/MutTechDirector.ini` into
+   `UT2004/System/`.
 2. Start the game, open **Instant Action** or **Host Game**, and select
    **Tournament Technical Director** in the mutator list.
 3. Optional: press **Configure Mutators** in that list to tune the nine transmat
@@ -219,7 +220,8 @@ It performs these steps:
    dependencies.
 3. Removes any old `System/MutTechDirector.u` and runs `wine UCC.exe make`.
 4. Runs `wine UCC.exe exportcache MutTechDirector.u`.
-5. Installs `MutTechDirector.int` into `System/`.
+5. Installs `MutTechDirector.int` and the shipped feed config
+   `MutTechDirector.ini` into `System/`.
 6. Restores `UT2004.ini` via an `EXIT`/`INT`/`TERM` trap, even on failure.
 7. Copies the compiled package into `prebuilt/System/` for release packaging.
 
@@ -305,7 +307,9 @@ TeamDirector/
 │   ├── PHILOSOPHY.md                # design principles and lore
 │   └── ROADMAP.md                   # status, limits and future work
 ├── install/
-│   └── MutTechDirector.int
+│   ├── MutTechDirector.ini          # shipped broadcast feed source
+│   ├── MutTechDirector.int
+│   └── README.txt
 ├── prebuilt/
 │   ├── BUILD
 │   └── System/                      # compiled .u / .ucl release copies

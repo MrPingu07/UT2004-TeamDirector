@@ -12,7 +12,8 @@
 #   2. temporarily append EditPackages=MutTechDirector to UT2004.ini
 #   3. compile with "ucc make" (Wine)  => System/MutTechDirector.u
 #   4. generate the mutator cache      => System/MutTechDirector.ucl
-#   5. install the localization file   => System/MutTechDirector.int
+#   5. install the localization and feed config files
+#      => System/MutTechDirector.int and System/MutTechDirector.ini
 #   6. restore UT2004.ini and keep a prebuilt copy of the package
 #
 # Requirements: wine with access to the game's drive mapping; UT2004_DIR can
@@ -105,8 +106,9 @@ echo "==> compiled: $SYSTEM/$PKG.u"
 wine UCC.exe exportcache "$PKG.u" 2>&1 | grep -Ev "fixme:|wineboot|winediag" || true
 test -f "$PKG.ucl" || echo "WARN: $PKG.ucl not produced (the Object= line in the .int still covers mutator lists)"
 
-# --- 5) localization file ----------------------------------------------------
+# --- 5) localization and feed config ----------------------------------------
 cp -f "$ROOT/install/$PKG.int" "$SYSTEM/$PKG.int"
+cp -f "$ROOT/install/$PKG.ini" "$SYSTEM/$PKG.ini"
 
 # --- 6) keep a release copy --------------------------------------------------
 mkdir -p "$ROOT/prebuilt/System"
@@ -118,5 +120,5 @@ fi
     echo "built=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "$ROOT/prebuilt/BUILD"
 
-echo "==> installed: $PKG.u / $PKG.int in $SYSTEM"
+echo "==> installed: $PKG.u / $PKG.int / $PKG.ini in $SYSTEM"
 echo "==> done. Pick 'MutTech Director' in the mutator list."

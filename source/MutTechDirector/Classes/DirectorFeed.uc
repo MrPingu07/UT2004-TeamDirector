@@ -31,6 +31,7 @@ const FALLBACK_SERVER   = "Local Arena";
 const FALLBACK_GAMETYPE = "Tournament";
 const FALLBACK_NAME     = "Someone";
 const FALLBACK_SCORE    = "lots of";
+const FALLBACK_TEAM     = "Our Team";
 const FALLBACK_GOAL     = "No Limit";
 const FALLBACK_STATUS   = "Unknown";
 
@@ -77,6 +78,7 @@ static function string ExpandTokens(string Msg, PlayerController PC)
     else
         ReplaceText(Msg, "$TOPTEAMFRAGGER", TopTeam.PlayerName);
 
+    ReplaceText(Msg, "$TOPTEAMNAME", GetTeamName(GRI, PC));
     ReplaceText(Msg, "$MAPNAME", GetMapName(PC));
     ReplaceText(Msg, "$SERVERNAME", GetServerName(GRI));
     ReplaceText(Msg, "$PLAYERCOUNT", string(GetPlayerCount(GRI)));
@@ -265,6 +267,25 @@ static function float GetTeamScore(GameReplicationInfo GRI, int TeamIndex)
     if (GRI.Teams[TeamIndex] == None)
         return 0.0;
     return GRI.Teams[TeamIndex].Score;
+}
+
+/** Display name of the Director's team; Red/Blue when TeamName is blank. */
+static function string GetTeamName(GameReplicationInfo GRI, PlayerController PC)
+{
+    local int TeamIndex;
+
+    TeamIndex = GetDirectorTeam(PC);
+    if (GRI == None || TeamIndex < 0 || TeamIndex > 1 ||
+        GRI.Teams[TeamIndex] == None)
+        return FALLBACK_TEAM;
+
+    if (GRI.Teams[TeamIndex].TeamName != "")
+        return GRI.Teams[TeamIndex].TeamName;
+
+    if (TeamIndex == 0)
+        return "Red";
+
+    return "Blue";
 }
 
 static function string GetLeadTeam(GameReplicationInfo GRI)

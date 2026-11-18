@@ -29,8 +29,7 @@ only; it never changes gameplay, scores, or cooldowns.
 | --- | --- |
 | `source/MutTechDirector/Classes/DirectorFeed.uc` | Config-backed message array plus the token helpers and `ExpandTokens()` |
 | `source/MutTechDirector/Classes/DirectorHUD.uc` | Shuffle bag, message selection, snapshotting, typewriter rendering |
-| `feed.txt` | Human-editable source list, one message per line |
-| `tools/feed2ini.sh` | Converts `feed.txt` into the game's `MutTechDirector.ini` |
+| `install/MutTechDirector.ini` | Shipped source copy of the feed config; this is the file edited and released |
 | `<UT2004>/System/MutTechDirector.ini` | Runtime configuration read by every client |
 | `install/README.txt` | End-user instructions for the same workflow |
 
@@ -43,10 +42,13 @@ tokens from replicated state locally.
 ## 3. Data flow
 
 ```text
-feed.txt
-   │  tools/feed2ini.sh
+install/MutTechDirector.ini
+   │  copied into <UT2004>/System/ (tools/build.sh does this)
    ▼
-MutTechDirector.ini  ──►  class'DirectorFeed'.default.Messages
+<UT2004>/System/MutTechDirector.ini
+   │
+   ▼
+class'DirectorFeed'.default.Messages
                               │
                               ▼
                     PickMessage()  ── shuffle bag, empty entries skipped
@@ -79,14 +81,16 @@ is not parsed".
 
 ### 3.2 Authoring workflow
 
-1. Edit `feed.txt`, one message per line. Blank lines and `#` comments are
-   ignored. A final line without a trailing newline is still read.
-2. Run `tools/feed2ini.sh`.
-3. Copy the generated `System/MutTechDirector.ini` to every client's
-   `UT2004/System/` folder. The file is per-client, not replicated.
+1. Edit `install/MutTechDirector.ini` in the project. This is the shipped
+   source copy; there is no separate message list or conversion script.
+2. Keep the `[MutTechDirector.DirectorFeed]` section and use one repeated
+   `Messages=` line per entry.
+3. Install it into `<UT2004>/System/MutTechDirector.ini`. `tools/build.sh`
+   copies it automatically during a build; for a manual install, copy the
+   file.
 4. Restart UT2004 (config is loaded at startup).
 
-The compiled defaults are:
+Every client needs its own copy. The compiled defaults are:
 
 ```text
 TECHNICAL DIRECTOR MODE
@@ -192,6 +196,7 @@ integers.
 | `$TOPFRAGGER` | Global match leader name | Highest `PRI.Score` among non-spectators; ties go to the first entry in `PRIArray`; fallback `Someone` |
 | `$TOPFRAGGERSCORE` | Global leader's score | Score of that same player; fallback `lots of` |
 | `$TOPTEAMFRAGGER` | Leader of the Director's team | Highest score filtered by `PRI.Team.TeamIndex == Director team`; fallback `Someone` |
+| `$TOPTEAMNAME` | Display name of the Director's team | `GRI.Teams[team].TeamName`; `Red`/`Blue` if the name is blank; fallback `Our Team` |
 | `$REDVAL` | Red team aggregate | `GRI.Teams[0].Score`; `0` if the slot is empty |
 | `$BLUEVAL` | Blue team aggregate | `GRI.Teams[1].Score`; `0` if the slot is empty |
 | `$LEADTEAM` | Team currently ahead | Compares the two team scores; `Red`, `Blue`, or `Neither` |
@@ -208,6 +213,8 @@ Team-index notes:
   `PlayerOwner.PlayerReplicationInfo.Team.TeamIndex`, which remains valid while
   the Director is in the booth because the mutator never removes them from the
   team.
+- `$TOPTEAMNAME` and `$TOPTEAMFRAGGER` both refer to that team. Neither means
+  "the team currently leading"; use `$LEADTEAM` for that.
 - Bots participate in every standings token.
 
 ### 5.5 Time and status

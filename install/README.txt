@@ -13,12 +13,13 @@ UT2004 install.
 INSTALL
 -------
 
-1. Copy the three files from the "System" folder of this archive into your
+1. Copy the four files from the "System" folder of this archive into your
    UT2004 "System" folder:
 
        MutTechDirector.u
        MutTechDirector.ucl
        MutTechDirector.int
+       MutTechDirector.ini
 
 2. Start the game and open Instant Action or Host Game.
 3. Add "Tournament Technical Director" in the Mutators list.
@@ -81,26 +82,25 @@ FEED MESSAGES (TYPEWRITER BANNER)
 ---------------------------------
 
 The bottom banner types random messages from a config array. Each client reads
-its own MutTechDirector.ini.
+its own MutTechDirector.ini. The file shipped with this archive already
+contains the tournament feed.
 
-To customize messages:
-
-1. Edit feed.txt in the project root (one message per line; # comments ignored).
-2. Run: tools/feed2ini.sh
-3. Copy System/MutTechDirector.ini to every client's UT2004/System/ folder.
-
-The ini uses the UT2004 dynamic-array format: one repeated bare key per
-message, with no index and no quotes:
+To customize messages, edit the [MutTechDirector.DirectorFeed] section of
+UT2004/System/MutTechDirector.ini directly:
 
     [MutTechDirector.DirectorFeed]
     Messages=TECHNICAL DIRECTOR MODE
     Messages=PRESS [B] TO EXIT BOOTH
 
-Do NOT write "Messages(0)=..." - the indexed form is only for static arrays
-and is silently ignored for this one, leaving the two built-in defaults.
+The ini uses the UT2004 dynamic-array format: one repeated bare key per
+message, with no index and no quotes. Do NOT write "Messages(0)=..." - the
+indexed form is only for static arrays and is silently ignored. A missing or
+unreadable ini falls back to the two compiled defaults above.
 
-Default messages: "TECHNICAL DIRECTOR MODE" and "PRESS [B] TO EXIT BOOTH".
-Messages wider than 90% of screen width are skipped at runtime.
+Messages may contain live-match tokens such as $MAPNAME, $TOPFRAGGER,
+$TOPFRAGGERSCORE, $PLAYERCOUNT, $TOPTEAMNAME and the rest of the roster. The
+full list, fallbacks and match-state rules are documented in
+docs/BROADCASTING.md.
 
 The HUD runs on the client, so each client must have the .ini file.
 
