@@ -281,8 +281,8 @@ simulated function DrawSpectatingHud(Canvas C)
         GRI = PlayerOwner.GameReplicationInfo;
         if (GRI != None && ArrayCount(GRI.Teams) >= 2)
         {
-            RedScore = "$" $ GRI.Teams[0].Score;
-            BlueScore = "$" $ GRI.Teams[1].Score;
+            RedScore = string(GRI.Teams[0].Score);
+            BlueScore = string(GRI.Teams[1].Score);
             
             C.Font = C.MedFont;
             C.StrLen(RedScore, RedW, PH);
