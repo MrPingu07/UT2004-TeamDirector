@@ -38,7 +38,9 @@ const FALLBACK_STATUS   = "Unknown";
 /**
  * Replace every supported token in Msg with its live value.
  *
- * Tokens are case-sensitive (ReplaceText uses a case-sensitive Repl).
+ * The template is uppercased before matching, so token names are effectively
+ * case-insensitive.  The finished message is uppercased again so inserted
+ * values (player names, server/map/team names) also render in caps.
  * $TOPFRAGGERSCORE is expanded before $TOPFRAGGER because the shorter token
  * is a prefix of the longer one.
  *
@@ -55,8 +57,9 @@ static function string ExpandTokens(string Msg, PlayerController PC)
         return Msg;
 
     // The banner is styled as an all-caps broadcast. Uppercase the template
-    // before token replacement so player names and other live values keep
-    // their original casing. It also makes token matching case-insensitive.
+    // before token replacement so token names are matched case-insensitively,
+    // then uppercase the finished string so even player/server/map names are
+    // rendered in caps. Control/colour characters are left intact by Caps().
     Msg = Caps(Msg);
 
     GRI = None;
@@ -102,7 +105,10 @@ static function string ExpandTokens(string Msg, PlayerController PC)
     ReplaceText(Msg, "$RANDOM25_50", string(RollRange(25, 50)));
     ReplaceText(Msg, "$RANDOM75_100", string(RollRange(75, 100)));
 
-    return Msg;
+    // Second pass: force inserted values (usernames, map/server/team names)
+    // to uppercase too. The template was already uppercased, so this only
+    // affects the dynamic values.
+    return Caps(Msg);
 }
 
 /**

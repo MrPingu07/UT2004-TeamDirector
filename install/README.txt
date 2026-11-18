@@ -108,8 +108,8 @@ random numbers $RANDOM1_25, $RANDOM25_50 and $RANDOM75_100. The full list,
 fallbacks and match-state rules are documented in docs/BROADCASTING.md.
 
 Message text is uppercased automatically, so it can be written in normal
-sentence case. Token values keep their original casing (player names, server
-names, map titles and team names are not forced to caps).
+sentence case. Token values are uppercased too: player names, server names,
+map titles and team names all render in caps.
 
 The HUD runs on the client, but the message list is replicated from the
 server. A client-local MutTechDirector.ini is ignored during a networked match
