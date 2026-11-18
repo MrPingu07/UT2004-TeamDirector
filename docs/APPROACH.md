@@ -439,10 +439,14 @@ move.
    - header `[TECHNICAL DIRECTOR LOGISTICS]`;
    - Nanite row with `[HOLD]` / `[BEAM]`;
    - full mode: slots 1–9 with names and status;
-   - page picker: `[1] Personal`, `[2] Machinery`,
-     `[Crouch] Back | [Q/E] Pages`;
+   - page picker (default): `[1] Personal`, `[2] Machinery`, `[3] All`,
+     plus `[Crouch] Back | [Q/E] Cycle pages`;
    - Personal page: original 1, 3, 4, 5, 9 as visible 1–5;
-   - Machinery page: original 2, 6, 7, 8 as visible 1–4.
+   - Machinery page: original 2, 6, 7, 8 as visible 1–4;
+   - All page: original 1–9, with no `[ALL]` label.
+   Q/E cycle Personal → Machinery → All (Q reverses). Crouch always returns
+   to the page picker. The `[Crouch] Back | [Q/E] Cycle pages` footer appears
+   on every page and is hidden together with the cheatsheet by `H`.
    Status is `[READY]` when cooldown ≤ 0.01, otherwise `[Ns]`. Color is green
    when ready, yellow at ≤ half cooldown, red above. Jump healing is handled
    before hotbar dispatch and works in every mode.
@@ -450,7 +454,7 @@ move.
    one control per line, no separators:
    `[Wheel] Cycle Fighter Feed`, `[Hold Fire/AltFire] Zoom Cam`,
    `[Hold Jump] Heal`, `[1-9] Transmat Drop`, `[B] Toggle Booth`,
-   `[Q/E] Hotbar Pages`, `[1/2] Select Page`, `[Crouch] Back`,
+   `[Q/E] Cycle Pages`, `[1/2/3] Select Page`, `[Crouch] Back`,
    `[H] Hide controls`.
    Pressing `H` hides every line except `[H] Show controls`, which restores
    the full list. The cheatsheet starts visible each time the booth opens.

@@ -114,9 +114,9 @@ script.
 | Hold left mouse | Zoom camera in |
 | Hold right mouse | Zoom camera out |
 | Hold `Jump` | Nanite Med-Surge (2 HP/sec) |
-| `Q` / `E` | Switch between the full 1–9 hotbar and the two-page picker |
-| `1` / `2` in page picker | Open the Personal / Machinery page |
-| `Crouch` (`C` or `Ctrl`) | Back out: page → picker → full 1–9 hotbar |
+| `Q` / `E` | Cycle hotbar pages: Personal → Machinery → All (`Q` reverses) |
+| `1` / `2` / `3` in page picker | Open Personal / Machinery / All |
+| `Crouch` (`C` or `Ctrl`) | Return to the Pages picker |
 | `H` | Show/hide the cheatsheet (the `[H]` reminder stays visible) |
 | `1` | Ammunition Requisition |
 | `2` | Perimeter Defense (floor Sentinel) |
@@ -131,6 +131,8 @@ script.
 Page mode renumbers the abilities:
 - **Personal:** original 1, 3, 4, 5, 9 → keys 1–5.
 - **Machinery:** original 2, 6, 7, 8 → keys 1–4.
+- **All:** the full original 1–9 list.
+The Pages picker is the default when the booth opens.
 
 The Interaction consumes only these keys while the booth is active, so normal
 console/chat input still works when those interfaces have focus. `B` itself is a

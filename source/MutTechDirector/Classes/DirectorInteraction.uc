@@ -34,7 +34,7 @@ var float ZoomDistance;
 var float WheelCooldown;
 
 /** Hotbar layout: full 1-9 list, page picker, or one selected page. */
-const HOTBAR_FULL       = 0;
+const HOTBAR_ALL        = 0;
 const HOTBAR_PAGE_PICK  = 1;
 const HOTBAR_PERSONAL   = 2;
 const HOTBAR_MACHINERY  = 3;
@@ -61,7 +61,7 @@ event Initialized()
 {
     ZoomDistance = 420.0;
     WheelCooldown = 0.0;
-    HotbarMode = HOTBAR_FULL;
+    HotbarMode = HOTBAR_PAGE_PICK;
     bShowCheatsheet = True;
 }
 
@@ -252,19 +252,22 @@ function bool KeyEvent(out EInputKey Key, out EInputAction Action, FLOAT Delta)
                 return True;
 
             case IK_Q:
+                CycleHotbarPage(-1);
+                return True;
             case IK_E:
-                ToggleHotbarPages();
+                CycleHotbarPage(1);
                 return True;
 
             case IK_H:
                 bShowCheatsheet = !bShowCheatsheet;
                 return True;
 
-            // Crouch (C or Ctrl, depending on the player's bind) backs out
-            // one level: page -> page picker -> full 1-9 list.
+            // Crouch (C or Ctrl, depending on the player's bind) returns to
+            // the page picker. Jump healing is handled separately and always
+            // works, regardless of the active hotbar page.
             case IK_C:
             case IK_Ctrl:
-                if (HotbarMode == HOTBAR_FULL)
+                if (HotbarMode == HOTBAR_PAGE_PICK)
                     return False;
                 HotbarBack();
                 return True;
@@ -447,8 +450,13 @@ function PostRender(Canvas C)
                 Y += LineH;
                 DrawLine(C, X, Y, "[2] Machinery", White);
                 Y += LineH;
-                DrawLine(C, X, Y, "[Crouch] Back | [Q/E] Pages", Dim);
+                DrawLine(C, X, Y, "[3] All", White);
                 Y += LineH;
+                if (bShowCheatsheet)
+                {
+                    DrawLine(C, X, Y, "[Crouch] Back | [Q/E] Cycle pages", Dim);
+                    Y += LineH;
+                }
                 break;
 
             case HOTBAR_PERSONAL:
@@ -464,6 +472,11 @@ function PostRender(Canvas C)
                     DrawLine(C, X, Y, NameText, White);
                     C.StrLen(NameText, XL, YL);
                     DrawLine(C, X + XL + 10.0 * Scale, Y, Status, StatusColor);
+                    Y += LineH;
+                }
+                if (bShowCheatsheet)
+                {
+                    DrawLine(C, X, Y, "[Crouch] Back | [Q/E] Cycle pages", Dim);
                     Y += LineH;
                 }
                 break;
@@ -483,9 +496,15 @@ function PostRender(Canvas C)
                     DrawLine(C, X + XL + 10.0 * Scale, Y, Status, StatusColor);
                     Y += LineH;
                 }
+                if (bShowCheatsheet)
+                {
+                    DrawLine(C, X, Y, "[Crouch] Back | [Q/E] Cycle pages", Dim);
+                    Y += LineH;
+                }
                 break;
 
             default:
+                // All page: no "[ALL]" label; the full 1-9 list is self-evident.
                 for (i = 1; i <= 9; i++)
                 {
                     NameText = "[" $ i $ "] " $ SlotName(i);
@@ -495,6 +514,11 @@ function PostRender(Canvas C)
                     DrawLine(C, X, Y, NameText, White);
                     C.StrLen(NameText, XL, YL);
                     DrawLine(C, X + XL + 10.0 * Scale, Y, Status, StatusColor);
+                    Y += LineH;
+                }
+                if (bShowCheatsheet)
+                {
+                    DrawLine(C, X, Y, "[Crouch] Back | [Q/E] Cycle pages", Dim);
                     Y += LineH;
                 }
                 break;
@@ -509,8 +533,8 @@ function PostRender(Canvas C)
             CheatLines[2] = "[Hold Jump] Heal";
             CheatLines[3] = "[1-9] Transmat Drop";
             CheatLines[4] = "[B] Toggle Booth";
-            CheatLines[5] = "[Q/E] Hotbar Pages";
-            CheatLines[6] = "[1/2] Select Page";
+            CheatLines[5] = "[Q/E] Cycle Pages";
+            CheatLines[6] = "[1/2/3] Select Page";
             CheatLines[7] = "[Crouch] Back";
             CheatLines[8] = "[H] Hide controls";
 
@@ -735,28 +759,52 @@ function PostRender(Canvas C)
 // Hotbar helpers
 // ---------------------------------------------------------------------------
 
-/** Q/E: rotate between the full 1-9 list and the two-page picker. */
+/** Reset to the page picker, which is the default on every booth entry. */
 function ResetHotbar()
 {
-    HotbarMode = HOTBAR_FULL;
+    HotbarMode = HOTBAR_PAGE_PICK;
     bShowCheatsheet = True;
 }
 
-function ToggleHotbarPages()
+/** Q/E: cycle Personal -> Machinery -> All -> Personal (Q reverses). */
+function CycleHotbarPage(int Direction)
 {
-    if (HotbarMode == HOTBAR_FULL)
-        HotbarMode = HOTBAR_PAGE_PICK;
+    if (HotbarMode == HOTBAR_PAGE_PICK)
+    {
+        // From the picker, E opens page 1 and Q opens page 3, so the hint
+        // stays truthful before a page has been selected.
+        if (Direction < 0)
+            HotbarMode = HOTBAR_ALL;
+        else
+            HotbarMode = HOTBAR_PERSONAL;
+        return;
+    }
+
+    if (Direction < 0)
+    {
+        if (HotbarMode == HOTBAR_PERSONAL)
+            HotbarMode = HOTBAR_ALL;
+        else if (HotbarMode == HOTBAR_MACHINERY)
+            HotbarMode = HOTBAR_PERSONAL;
+        else
+            HotbarMode = HOTBAR_MACHINERY;
+    }
     else
-        HotbarMode = HOTBAR_FULL;
+    {
+        if (HotbarMode == HOTBAR_PERSONAL)
+            HotbarMode = HOTBAR_MACHINERY;
+        else if (HotbarMode == HOTBAR_MACHINERY)
+            HotbarMode = HOTBAR_ALL;
+        else
+            HotbarMode = HOTBAR_PERSONAL;
+    }
 }
 
-/** Crouch: page -> picker -> full list. */
+/** Crouch: any page returns to the picker. */
 function HotbarBack()
 {
-    if (HotbarMode == HOTBAR_PERSONAL || HotbarMode == HOTBAR_MACHINERY)
+    if (HotbarMode != HOTBAR_PAGE_PICK)
         HotbarMode = HOTBAR_PAGE_PICK;
-    else if (HotbarMode == HOTBAR_PAGE_PICK)
-        HotbarMode = HOTBAR_FULL;
 }
 
 /**
@@ -767,7 +815,7 @@ function HandleHotbarKey(int Number)
 {
     switch (HotbarMode)
     {
-        case HOTBAR_FULL:
+        case HOTBAR_ALL:
             RI.ServerUseAbility(Number);
             break;
 
@@ -776,6 +824,8 @@ function HandleHotbarKey(int Number)
                 HotbarMode = HOTBAR_PERSONAL;
             else if (Number == 2)
                 HotbarMode = HOTBAR_MACHINERY;
+            else if (Number == 3)
+                HotbarMode = HOTBAR_ALL;
             break;
 
         case HOTBAR_PERSONAL:

@@ -43,9 +43,9 @@ CONTROLS
     Hold left mouse      Zoom in
     Hold right mouse     Zoom out
     Hold Jump            Nanite Med-Surge (heals the fighter on the feed)
-    Q / E                Switch full 1-9 hotbar <-> page picker
-    1 / 2 (page picker)  Open Personal / Machinery page
-    Crouch (C or Ctrl)   Back out: page -> picker -> full hotbar
+    Q / E                Cycle pages: Personal -> Machinery -> All
+    1 / 2 / 3            Open Personal / Machinery / All page
+    Crouch (C or Ctrl)   Return to the Pages picker
     H                    Show/hide the cheatsheet; the H hint stays visible
 
 
