@@ -451,8 +451,13 @@ move.
    - `Alive: n` and `Dead: n`.
    Values come from the RI's server-authoritative `TeamAlive` / `TeamDead`,
    recounted every 0.5 s over `Level.ControllerList`. Bots count; the Director
-   does not. Colours use a 0–25 red / 25–50 yellow / 50–75 orange / 75–100
-   green band on `Alive / total`; `Dead` uses the exact inverse ratio.
+   does not. Colours use a 5-range scale (20% each) on `Alive / total`:
+    - 80–100%: Green (70, 255, 110)
+    - 60–80%: Lime (200, 255, 0)
+    - 40–60%: Yellow (255, 220, 60)
+    - 20–40%: Orange (255, 140, 40)
+    - 0–20%: Red (255, 72, 72)
+    `Dead` uses the exact inverse ratio (0% dead = green, 100% dead = red).
 5. **Nameplates**:
    - `RI.GetFriendlyPawns()` collects living teammates on the client;
    - head position = `Location + vect(0,0,60)`;
