@@ -201,7 +201,7 @@ simulated function DrawSpectatingHud(Canvas C)
     // Team score counter locals
     local GameReplicationInfo GRI;
     local string RedScore, BlueScore;
-    local float RedW, BlueW, DashW, TLogoSize, TLogoY, TScoreY, TGap, TTotalW, TStartX;
+    local float RedW, BlueW, DashW, TScoreY, TTotalW, TStartX;
     local HUD MyHUD;
     
     // First, draw the native chat feed at its native position (bottom of screen)
@@ -274,7 +274,7 @@ simulated function DrawSpectatingHud(Canvas C)
     );
     C.Style = ERenderStyle.STY_Normal;
     
-    // Team score counter at top center (hidden during F1)
+    // Team score counter at top center (hidden during F1) - simple integers only
     MyHUD = PlayerOwner.myHUD;
     if (PlayerOwner != None && MyHUD != None && !MyHUD.bShowScoreBoard)
     {
@@ -289,53 +289,25 @@ simulated function DrawSpectatingHud(Canvas C)
             C.StrLen(BlueScore, BlueW, PH);
             C.StrLen(" - ", DashW, PH);
             
-            // Team logos from InterfaceContent.HUD.SkinA (same as stock HUD)
-            // Red logo: U=979..611, V=900..1023 (flipped horizontally)
-            // Blue logo: U=611..979, V=900..1023
-            TLogoSize = 32.0;
-            TLogoY = 16.0;
-            TScoreY = TLogoY + (TLogoSize - PH) * 0.5;
-            TGap = 16.0;
-            
-            // Total width: red logo + gap + red score + dash + blue score + gap + blue logo
-            TTotalW = TLogoSize * 2.0 + TGap * 4.0 + RedW + DashW + BlueW;
+            // Centered text: Red - Blue
+            TTotalW = RedW + DashW + BlueW;
             TStartX = (C.ClipX - TTotalW) * 0.5;
-            
-            // Red team logo (left)
-            C.Style = ERenderStyle.STY_Alpha;
-            C.SetDrawColor(255, 255, 255, 255);
-            C.SetPos(TStartX, TLogoY);
-            C.DrawTile(
-                Texture'InterfaceContent.HUD.SkinA',
-                TLogoSize, TLogoSize,
-                979, 900,
-                611 - 979, 1023 - 900  // negative U = flipped
-            );
+            TScoreY = 16.0;
             
             // Red score
             C.SetDrawColor(255, 80, 80, 255);
-            C.SetPos(TStartX + TLogoSize + TGap, TScoreY);
+            C.SetPos(TStartX, TScoreY);
             C.DrawText(RedScore);
             
             // Dash
             C.SetDrawColor(255, 255, 255, 255);
-            C.SetPos(TStartX + TLogoSize + TGap + RedW + TGap, TScoreY);
+            C.SetPos(TStartX + RedW, TScoreY);
             C.DrawText(" - ");
             
             // Blue score
             C.SetDrawColor(100, 150, 255, 255);
-            C.SetPos(TStartX + TLogoSize + TGap + RedW + TGap + DashW + TGap, TScoreY);
+            C.SetPos(TStartX + RedW + DashW, TScoreY);
             C.DrawText(BlueScore);
-            
-            // Blue team logo (right)
-            C.SetPos(TStartX + TTotalW - TLogoSize, TLogoY);
-            C.DrawTile(
-                Texture'InterfaceContent.HUD.SkinA',
-                TLogoSize, TLogoSize,
-                611, 900,
-                979 - 611, 1023 - 900
-            );
-            C.Style = ERenderStyle.STY_Normal;
         }
     }
     
