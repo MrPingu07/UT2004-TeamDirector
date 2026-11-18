@@ -192,16 +192,18 @@ simulated function DrawSpectatingHud(Canvas C)
     TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
     
     // Draw scrolling text (clipped to banner area)
+    // Only draw when text is fully within screen bounds to prevent wrapping
     C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
     
-    if (TextX + TextWidth > 0 && TextX < C.ClipX)
+    // Only draw when text is fully within screen bounds (prevents wrapping)
+    if (TextX >= 0 && TextX + TextWidth <= C.ClipX)
     {
         C.SetPos(TextX, TextYPos);
         C.DrawText(ScrollText, false);
     }
     
-    // Draw second copy for seamless looping
-    if (TextX + TextWidth + C.ClipX > 0 && TextX + TextWidth < C.ClipX * 2)
+    // Draw second copy for seamless looping - only when fully in bounds
+    if (TextX + TextWidth + 50 >= 0 && TextX + TextWidth + 50 + TextWidth <= C.ClipX)
     {
         C.SetPos(TextX + TextWidth + 50, TextYPos);
         C.DrawText(ScrollText, false);
