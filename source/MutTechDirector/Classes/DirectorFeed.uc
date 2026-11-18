@@ -141,7 +141,7 @@ static function int RollRange(int Min, int Max)
  *
  *     $RANDOM1_9       -> 1..9
  *     $RANDOM25_50     -> 25..50
- *     $RANDOM1_50K     -> 1..50000, printed as a full integer (e.g. 43781)
+ *     $RANDOM1_50K     -> 1..50000, printed as a grouped integer (43.781)
  *     $RANDOM1_5M      -> 1..5000000, clamped to the hard ceiling below
  *
  * UnrealScript has no regex, so the token is parsed by hand.  Malformed
@@ -211,7 +211,7 @@ static function string ExpandRandomTokens(string Msg)
         if (MaxVal >= MinVal)
         {
             Token = Mid(Msg, Pos, i - Pos);
-            ReplaceText(Msg, Token, string(RollRange(MinVal, MaxVal)));
+            ReplaceText(Msg, Token, FormatNumber(RollRange(MinVal, MaxVal)));
         }
 
         SearchFrom = Pos + 1;
@@ -560,8 +560,32 @@ static function string GetTimeRemaining(GameReplicationInfo GRI)
     return FormatClock(GRI.RemainingTime);
 }
 
-/** Minutes without leading zero, seconds always two digits: 0:07, 12:34. */
-static function string FormatClock(int Seconds)
+/**
+ * Group an integer with dots every three digits: 43781 -> 43.781.
+ * Used only for $RANDOM output; scores and clocks keep their plain form.
+ */
+static function string FormatNumber(int Value)
+{
+    local string S;
+    local string Out;
+    local int i;
+    local int Count;
+
+    S = string(Value);
+    Out = "";
+    Count = 0;
+    for (i = Len(S) - 1; i >= 0; i--)
+    {
+        if (Count > 0 && Count % 3 == 0)
+            Out = "." $ Out;
+        Out = Mid(S, i, 1) $ Out;
+        Count++;
+    }
+
+    return Out;
+}
+
+/** Minutes without leading zero, seconds always two digits: 0:07, 12:34. */static function string FormatClock(int Seconds)
 {
     local int Minutes;
     local int Rest;

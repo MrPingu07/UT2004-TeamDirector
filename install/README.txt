@@ -105,9 +105,9 @@ unreadable ini falls back to the two compiled defaults above.
 Messages may contain live-match tokens such as $MAPNAME, $TOPFRAGGER,
 $TOPFRAGGERSCORE, $PLAYERCOUNT, $TOPTEAMNAME, $LEADTEAMNAME,
 $LEADTEAMFRAGGER and the rest of the roster. Random numbers use the dynamic
-$RANDOM<min>_<max> form, e.g. $RANDOM1_9, $RANDOM25_50 or $RANDOM1_50K. The
-full list, fallbacks and match-state rules are documented in
-docs/BROADCASTING.md.
+$RANDOM<min>_<max> form, e.g. $RANDOM1_9, $RANDOM25_50 or $RANDOM1_50K. Large
+random results are grouped with dots (e.g. 43.781). The full list, fallbacks
+and match-state rules are documented in docs/BROADCASTING.md.
 
 Message text is uppercased automatically, so it can be written in normal
 sentence case. Token values are uppercased too: player names, server names,

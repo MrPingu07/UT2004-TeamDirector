@@ -274,8 +274,8 @@ $RANDOM<min>_<max>[K|M]
 - Both endpoints are **inclusive**.
 - An optional `K` or `M` after the maximum multiplies it by 1,000 or
   1,000,000.
-- The result is always printed as a **full integer**, never as `43K`. So
-  `$RANDOM1_50K` might print `43781`.
+- The result is always printed as a **full integer, grouped with dots** every
+  three digits: `$RANDOM1_50K` might print `43.781`, never `43K`.
 - Maximum is clamped to 1,000,000 to keep the integer math safe.
 
 Examples:
@@ -301,7 +301,7 @@ watching the same message can see different values.
 ```text
 TONIGHT'S CROWD: $RANDOM75_100 PERCENT HERE FOR THE VIOLENCE.
 ODDS OF SURVIVAL: $RANDOM1_9 OUT OF 9. ODDS OF STYLE: $RANDOM25_50.
-GRAY MARKET PAYOUT: $RANDOM1_50K CREDITS.
+GRAY MARKET PAYOUT: $RANDOM1_50K CREDITS.   →   GRAY MARKET PAYOUT: 43.781 CREDITS.
 ```
 
 ---
