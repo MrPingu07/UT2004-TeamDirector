@@ -89,6 +89,16 @@ To customize messages:
 2. Run: tools/feed2ini.sh
 3. Copy System/MutTechDirector.ini to every client's UT2004/System/ folder.
 
+The ini uses the UT2004 dynamic-array format: one repeated bare key per
+message, with no index and no quotes:
+
+    [MutTechDirector.DirectorFeed]
+    Messages=TECHNICAL DIRECTOR MODE
+    Messages=PRESS [B] TO EXIT BOOTH
+
+Do NOT write "Messages(0)=..." - the indexed form is only for static arrays
+and is silently ignored for this one, leaving the two built-in defaults.
+
 Default messages: "TECHNICAL DIRECTOR MODE" and "PRESS [B] TO EXIT BOOTH".
 Messages wider than 90% of screen width are skipped at runtime.
 

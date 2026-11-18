@@ -299,6 +299,8 @@ TeamDirector/
 ├── README.md
 ├── docs/
 │   ├── APPROACH.md                  # architecture and implementation details
+│   ├── BEACON_FIX.md                # sentinel beacon debugging notes
+│   ├── BROADCASTING.md              # feed banner, ini config and live tokens
 │   ├── FINDINGS.md                  # stock-code findings and compiler quirks
 │   ├── PHILOSOPHY.md                # design principles and lore
 │   └── ROADMAP.md                   # status, limits and future work
@@ -309,12 +311,16 @@ TeamDirector/
 │   └── System/                      # compiled .u / .ucl release copies
 ├── source/MutTechDirector/Classes/
 │   ├── DirectorBindKeyMessage.uc
+│   ├── DirectorFeed.uc
+│   ├── DirectorHUD.uc
 │   ├── DirectorInteraction.uc
 │   ├── DirectorNotify.uc
 │   ├── DirectorNotifyText.uc
 │   ├── DirectorReplicationInfo.uc
 │   ├── DirectorRules.uc
 │   ├── DirectorSentinel.uc
+│   ├── DirectorTurretBeaconInteraction.uc
+│   ├── DirectorTurretBeaconMessage.uc
 │   ├── MutTechDirector.uc
 │   └── MutTechDirectorConfig.uc
 ├── prompt.txt                       # original specification
