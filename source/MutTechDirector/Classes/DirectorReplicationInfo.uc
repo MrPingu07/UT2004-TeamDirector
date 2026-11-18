@@ -234,6 +234,7 @@ simulated function TryAttachInteraction()
         {
             DirectorInteractionRef = I;
             I.PC = DirectorPC;
+            I.ResetHotbar();
             I.bVisible = True;
             I.bActive = True;
             SetTimer(0.0, false);
@@ -257,6 +258,7 @@ simulated function TryAttachInteraction()
 
     I.RI = Self;
     I.PC = DirectorPC;
+    I.ResetHotbar();
     I.bVisible = True;
     I.bActive = True;
     DirectorInteractionRef = I;

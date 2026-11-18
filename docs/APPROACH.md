@@ -438,13 +438,18 @@ move.
 2. **Top-left hotbar** (`X = 24`, `Y = 24`):
    - header `[TECHNICAL DIRECTOR LOGISTICS]`;
    - Nanite row with `[HOLD]` / `[BEAM]`;
-   - slots 1–9 with names and status.
+   - full mode: slots 1–9 with names and status;
+   - page picker: `[1] Personal`, `[2] Machinery`, `[Crouch] Back`;
+   - Personal page: original 1, 3, 4, 5, 9 as visible 1–5;
+   - Machinery page: original 2, 6, 7, 8 as visible 1–4.
    Status is `[READY]` when cooldown ≤ 0.01, otherwise `[Ns]`. Color is green
-   when ready, yellow at ≤ half cooldown, red above.
+   when ready, yellow at ≤ half cooldown, red above. Jump healing is handled
+   before hotbar dispatch and works in every mode.
 3. **Top-right cheatsheet** (`X = ClipX - 24 - width`, `Y = 24 + n*LineH`),
    one control per line, no separators:
    `[Wheel] Cycle Fighter Feed`, `[Hold Fire/AltFire] Zoom Cam`,
-   `[Hold Jump] Heal`, `[1-9] Transmat Drop`, `[B] Toggle Booth`.
+   `[Hold Jump] Heal`, `[1-9] Transmat Drop`, `[B] Toggle Booth`,
+   `[Q/E] Hotbar Pages | [1/2] Select Page | [Crouch] Back`.
 4. **Bottom-right `TeamMates` counter**, kept above the chat area and the
    "Now spectating..." banner (`ClipY - 14 - 8/7/6*LineH`):
    - cyan header `TeamMates`;

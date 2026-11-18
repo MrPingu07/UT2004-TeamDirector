@@ -33,6 +33,13 @@ var float ZoomDistance;
 /** Small debounce for clients that report the wheel as an axis. */
 var float WheelCooldown;
 
+/** Hotbar layout: full 1-9 list, page picker, or one selected page. */
+const HOTBAR_FULL       = 0;
+const HOTBAR_PAGE_PICK  = 1;
+const HOTBAR_PERSONAL   = 2;
+const HOTBAR_MACHINERY  = 3;
+var int HotbarMode;
+
 /**
  * Original TeamBeacon* ranges of the director's PlayerController.  The booth
  * suppresses the native floating beacons (they are range-gated, carry no HP or
@@ -51,6 +58,7 @@ event Initialized()
 {
     ZoomDistance = 420.0;
     WheelCooldown = 0.0;
+    HotbarMode = HOTBAR_FULL;
 }
 
 function Cleanup()
@@ -212,31 +220,45 @@ function bool KeyEvent(out EInputKey Key, out EInputAction Action, FLOAT Delta)
                 return True;
 
             case IK_1:
-                RI.ServerUseAbility(1);
+                HandleHotbarKey(1);
                 return True;
             case IK_2:
-                RI.ServerUseAbility(2);
+                HandleHotbarKey(2);
                 return True;
             case IK_3:
-                RI.ServerUseAbility(3);
+                HandleHotbarKey(3);
                 return True;
             case IK_4:
-                RI.ServerUseAbility(4);
+                HandleHotbarKey(4);
                 return True;
             case IK_5:
-                RI.ServerUseAbility(5);
+                HandleHotbarKey(5);
                 return True;
             case IK_6:
-                RI.ServerUseAbility(6);
+                HandleHotbarKey(6);
                 return True;
             case IK_7:
-                RI.ServerUseAbility(7);
+                HandleHotbarKey(7);
                 return True;
             case IK_8:
-                RI.ServerUseAbility(8);
+                HandleHotbarKey(8);
                 return True;
             case IK_9:
-                RI.ServerUseAbility(9);
+                HandleHotbarKey(9);
+                return True;
+
+            case IK_Q:
+            case IK_E:
+                ToggleHotbarPages();
+                return True;
+
+            // Crouch (C or Ctrl, depending on the player's bind) backs out
+            // one level: page -> page picker -> full 1-9 list.
+            case IK_C:
+            case IK_Ctrl:
+                if (HotbarMode == HOTBAR_FULL)
+                    return False;
+                HotbarBack();
                 return True;
 
             case IK_Space:
@@ -318,6 +340,7 @@ function PostRender(Canvas C)
     local float X;
     local float Y;
     local int i;
+    local int Count;
     local int TeamTotal;
     local float RatioA;
     local float RatioD;
@@ -329,6 +352,7 @@ function PostRender(Canvas C)
     local string L3;
     local string L4;
     local string L5;
+    local string L6;
     local array<Pawn> Pawns;
     local Pawn P;
     local Vehicle V;
@@ -411,16 +435,64 @@ function PostRender(Canvas C)
         DrawLine(C, X + XL + 10.0 * Scale, Y, Status, StatusColor);
         Y += LineH;
 
-        for (i = 1; i <= 9; i++)
+        switch (HotbarMode)
         {
-            NameText = "[" $ i $ "] " $ SlotName(i);
-            Status = SlotStatus(i);
-            StatusColor = SlotColor(i);
+            case HOTBAR_PAGE_PICK:
+                DrawLine(C, X, Y, "[1] Personal", White);
+                Y += LineH;
+                DrawLine(C, X, Y, "[2] Machinery", White);
+                Y += LineH;
+                DrawLine(C, X, Y, "[Crouch] Back", Dim);
+                Y += LineH;
+                break;
 
-            DrawLine(C, X, Y, NameText, White);
-            C.StrLen(NameText, XL, YL);
-            DrawLine(C, X + XL + 10.0 * Scale, Y, Status, StatusColor);
-            Y += LineH;
+            case HOTBAR_PERSONAL:
+                DrawLine(C, X, Y, "[PERSONAL]", Cyan);
+                Y += LineH;
+                for (i = 1; i <= 5; i++)
+                {
+                    Count = PersonalAbility(i);
+                    NameText = "[" $ i $ "] " $ SlotName(Count);
+                    Status = SlotStatus(Count);
+                    StatusColor = SlotColor(Count);
+
+                    DrawLine(C, X, Y, NameText, White);
+                    C.StrLen(NameText, XL, YL);
+                    DrawLine(C, X + XL + 10.0 * Scale, Y, Status, StatusColor);
+                    Y += LineH;
+                }
+                break;
+
+            case HOTBAR_MACHINERY:
+                DrawLine(C, X, Y, "[MACHINERY]", Cyan);
+                Y += LineH;
+                for (i = 1; i <= 4; i++)
+                {
+                    Count = MachineryAbility(i);
+                    NameText = "[" $ i $ "] " $ SlotName(Count);
+                    Status = SlotStatus(Count);
+                    StatusColor = SlotColor(Count);
+
+                    DrawLine(C, X, Y, NameText, White);
+                    C.StrLen(NameText, XL, YL);
+                    DrawLine(C, X + XL + 10.0 * Scale, Y, Status, StatusColor);
+                    Y += LineH;
+                }
+                break;
+
+            default:
+                for (i = 1; i <= 9; i++)
+                {
+                    NameText = "[" $ i $ "] " $ SlotName(i);
+                    Status = SlotStatus(i);
+                    StatusColor = SlotColor(i);
+
+                    DrawLine(C, X, Y, NameText, White);
+                    C.StrLen(NameText, XL, YL);
+                    DrawLine(C, X + XL + 10.0 * Scale, Y, Status, StatusColor);
+                    Y += LineH;
+                }
+                break;
         }
 
         // -- top-right: booth controls cheatsheet ------------------------------
@@ -429,12 +501,14 @@ function PostRender(Canvas C)
         L3 = "[Hold Jump] Heal";
         L4 = "[1-9] Transmat Drop";
         L5 = "[B] Toggle Booth";
+        L6 = "[Q/E] Hotbar Pages | [1/2] Select Page | [Crouch] Back";
 
         DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L1), 24.0 * Scale, L1, Dim);
         DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L2), 24.0 * Scale + LineH, L2, Dim);
         DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L3), 24.0 * Scale + (2.0 * LineH), L3, Dim);
         DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L4), 24.0 * Scale + (3.0 * LineH), L4, Dim);
         DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L5), 24.0 * Scale + (4.0 * LineH), L5, Dim);
+        DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L6), 24.0 * Scale + (5.0 * LineH), L6, Dim);
     }
 
     // -- lower-right: live TeamMates roster counter ------------------------
@@ -640,6 +714,87 @@ function PostRender(Canvas C)
 // ---------------------------------------------------------------------------
 // Hotbar helpers
 // ---------------------------------------------------------------------------
+
+/** Q/E: rotate between the full 1-9 list and the two-page picker. */
+function ResetHotbar()
+{
+    HotbarMode = HOTBAR_FULL;
+}
+
+function ToggleHotbarPages()
+{
+    if (HotbarMode == HOTBAR_FULL)
+        HotbarMode = HOTBAR_PAGE_PICK;
+    else
+        HotbarMode = HOTBAR_FULL;
+}
+
+/** Crouch: page -> picker -> full list. */
+function HotbarBack()
+{
+    if (HotbarMode == HOTBAR_PERSONAL || HotbarMode == HOTBAR_MACHINERY)
+        HotbarMode = HOTBAR_PAGE_PICK;
+    else if (HotbarMode == HOTBAR_PAGE_PICK)
+        HotbarMode = HOTBAR_FULL;
+}
+
+/**
+ * Number-key dispatch for the current hotbar layout.  In page mode the
+ * visible 1..N keys map back to the original ability slots.
+ */
+function HandleHotbarKey(int Number)
+{
+    switch (HotbarMode)
+    {
+        case HOTBAR_FULL:
+            RI.ServerUseAbility(Number);
+            break;
+
+        case HOTBAR_PAGE_PICK:
+            if (Number == 1)
+                HotbarMode = HOTBAR_PERSONAL;
+            else if (Number == 2)
+                HotbarMode = HOTBAR_MACHINERY;
+            break;
+
+        case HOTBAR_PERSONAL:
+            if (Number >= 1 && Number <= 5)
+                RI.ServerUseAbility(PersonalAbility(Number));
+            break;
+
+        case HOTBAR_MACHINERY:
+            if (Number >= 1 && Number <= 4)
+                RI.ServerUseAbility(MachineryAbility(Number));
+            break;
+    }
+}
+
+/** Personal page, visible key -> original ability slot. */
+function int PersonalAbility(int Number)
+{
+    switch (Number)
+    {
+        case 1: return 1;
+        case 2: return 3;
+        case 3: return 4;
+        case 4: return 5;
+        case 5: return 9;
+    }
+    return 0;
+}
+
+/** Machinery page, visible key -> original ability slot. */
+function int MachineryAbility(int Number)
+{
+    switch (Number)
+    {
+        case 1: return 2;
+        case 2: return 6;
+        case 3: return 7;
+        case 4: return 8;
+    }
+    return 0;
+}
 
 function string SlotName(int Slot)
 {

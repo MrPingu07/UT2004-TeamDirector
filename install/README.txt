@@ -43,6 +43,9 @@ CONTROLS
     Hold left mouse      Zoom in
     Hold right mouse     Zoom out
     Hold Jump            Nanite Med-Surge (heals the fighter on the feed)
+    Q / E                Switch full 1-9 hotbar <-> page picker
+    1 / 2 (page picker)  Open Personal / Machinery page
+    Crouch (C or Ctrl)   Back out: page -> picker -> full hotbar
 
 
 TRANSMAT SLOTS
