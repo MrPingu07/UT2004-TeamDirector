@@ -114,9 +114,6 @@ simulated function DrawSpectatingHud(Canvas C)
     local PlayerReplicationInfo TargetPRI;
     local float TextY;
     
-    local float PauseTime;
-    local float PauseDistance;
-    local float TotalCycleDistance;
     
     // First, draw the native chat feed at its native position (bottom of screen)
     DisplayLocalMessages(C);
@@ -249,43 +246,21 @@ simulated function DrawSpectatingHud(Canvas C)
     C.Font = C.MedFont;  // 3x larger than SmallFont
     C.StrLen(ScrollText, TextWidth, TextHeight);
     
+    // Scrolling text animation
     ScrollSpeed = 80.0; // pixels per second
+    ScrollOffset = (Level.TimeSeconds * 80.0) % (TextWidth + C.ClipX);
     
-    // Total cycle: travel distance + pause gap
-    // Travel: text moves from right edge (ClipX) to fully off-screen left (-TextWidth)
-    // Pause: wait 2 seconds at fully off-screen before next message
-    PauseTime = 2.0; // seconds to wait after text fully exits
-    PauseDistance = ScrollSpeed * PauseTime; // pixels of pause "distance"
-    TotalCycleDistance = TextWidth + C.ClipX + PauseDistance;
-    
-    ScrollOffset = (Level.TimeSeconds * ScrollSpeed) % TotalCycleDistance;
-    
-    // Calculate TextX with pause gap
-    // Travel phase: TextX goes from ClipX down to -TextWidth
-    // Pause phase: TextX stays at -TextWidth for PauseDistance
-    if (ScrollOffset < TextWidth + C.ClipX)
-    {
-        // Travel phase: text moves from right to fully off-screen left
-        TextX = C.ClipX - ScrollOffset;
-    }
-    else
-    {
-        // Pause phase: text fully off-screen, wait before next cycle
-        TextX = -TextWidth;
-    }
-    
+    TextX = C.ClipX - (Level.TimeSeconds * 80.0 % (TextWidth + C.ClipX));
     TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
     
-    // Only draw when text is fully on-screen from left edge (TextX >= 0)
-    // This prevents character-jumping and stuck-last-character artifacts
+    // Only draw when text is on-screen from left edge (TextX >= 0)
+    // This keeps character-based panning smooth while avoiding left-edge artifacts
     if (TextX >= 0)
-    {
         C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
         C.Font = C.MedFont;
         C.SetPos(TextX, TextYPos);
         C.DrawText(ScrollText, false);
     }
-}
 
 defaultproperties
 {
