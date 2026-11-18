@@ -519,7 +519,8 @@ function PostRender(Canvas C)
             CheckV = Vehicle(P);
             if (CheckV != None && CheckV.Driver != None)
             {
-                bIsHighlighted = (CheckV.Driver == RI.CurrentTarget);
+                // Vehicle with driver: highlighted if the VEHICLE is the current target
+                bIsHighlighted = (CheckV == RI.CurrentTarget);
             }
             else
             {
