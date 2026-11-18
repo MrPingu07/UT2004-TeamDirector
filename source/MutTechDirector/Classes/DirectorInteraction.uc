@@ -40,6 +40,9 @@ const HOTBAR_PERSONAL   = 2;
 const HOTBAR_MACHINERY  = 3;
 var int HotbarMode;
 
+/** H toggles the top-right cheatsheet; the H reminder always stays visible. */
+var bool bShowCheatsheet;
+
 /**
  * Original TeamBeacon* ranges of the director's PlayerController.  The booth
  * suppresses the native floating beacons (they are range-gated, carry no HP or
@@ -59,6 +62,7 @@ event Initialized()
     ZoomDistance = 420.0;
     WheelCooldown = 0.0;
     HotbarMode = HOTBAR_FULL;
+    bShowCheatsheet = True;
 }
 
 function Cleanup()
@@ -252,6 +256,10 @@ function bool KeyEvent(out EInputKey Key, out EInputAction Action, FLOAT Delta)
                 ToggleHotbarPages();
                 return True;
 
+            case IK_H:
+                bShowCheatsheet = !bShowCheatsheet;
+                return True;
+
             // Crouch (C or Ctrl, depending on the player's bind) backs out
             // one level: page -> page picker -> full 1-9 list.
             case IK_C:
@@ -348,11 +356,8 @@ function PostRender(Canvas C)
     local string Status;
     local color StatusColor;
     local string L1;
-    local string L2;
-    local string L3;
-    local string L4;
-    local string L5;
-    local string L6;
+    local array<string> CheatLines;
+    local int LineIdx;
     local array<Pawn> Pawns;
     local Pawn P;
     local Vehicle V;
@@ -496,19 +501,34 @@ function PostRender(Canvas C)
         }
 
         // -- top-right: booth controls cheatsheet ------------------------------
-        L1 = "[Wheel] Cycle Fighter Feed";
-        L2 = "[Hold Fire/AltFire] Zoom Cam";
-        L3 = "[Hold Jump] Heal";
-        L4 = "[1-9] Transmat Drop";
-        L5 = "[B] Toggle Booth";
-        L6 = "[Q/E] Hotbar Pages | [1/2] Select Page | [Crouch] Back";
+        if (bShowCheatsheet)
+        {
+            CheatLines.Length = 9;
+            CheatLines[0] = "[Wheel] Cycle Fighter Feed";
+            CheatLines[1] = "[Hold Fire/AltFire] Zoom Cam";
+            CheatLines[2] = "[Hold Jump] Heal";
+            CheatLines[3] = "[1-9] Transmat Drop";
+            CheatLines[4] = "[B] Toggle Booth";
+            CheatLines[5] = "[Q/E] Hotbar Pages";
+            CheatLines[6] = "[1/2] Select Page";
+            CheatLines[7] = "[Crouch] Back";
+            CheatLines[8] = "[H] Hide controls";
 
-        DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L1), 24.0 * Scale, L1, Dim);
-        DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L2), 24.0 * Scale + LineH, L2, Dim);
-        DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L3), 24.0 * Scale + (2.0 * LineH), L3, Dim);
-        DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L4), 24.0 * Scale + (3.0 * LineH), L4, Dim);
-        DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L5), 24.0 * Scale + (4.0 * LineH), L5, Dim);
-        DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L6), 24.0 * Scale + (5.0 * LineH), L6, Dim);
+            for (LineIdx = 0; LineIdx < CheatLines.Length; LineIdx++)
+            {
+                DrawLine(C,
+                    C.ClipX - 24.0 * Scale - TextWidth(C, CheatLines[LineIdx]),
+                    24.0 * Scale + LineIdx * LineH,
+                    CheatLines[LineIdx], Dim);
+            }
+        }
+        else
+        {
+            // Keep only the H reminder so the player knows how to restore it.
+            L1 = "[H] Show controls";
+            DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L1),
+                24.0 * Scale, L1, Dim);
+        }
     }
 
     // -- lower-right: live TeamMates roster counter ------------------------
@@ -719,6 +739,7 @@ function PostRender(Canvas C)
 function ResetHotbar()
 {
     HotbarMode = HOTBAR_FULL;
+    bShowCheatsheet = True;
 }
 
 function ToggleHotbarPages()

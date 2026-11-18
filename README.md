@@ -117,6 +117,7 @@ script.
 | `Q` / `E` | Switch between the full 1–9 hotbar and the two-page picker |
 | `1` / `2` in page picker | Open the Personal / Machinery page |
 | `Crouch` (`C` or `Ctrl`) | Back out: page → picker → full 1–9 hotbar |
+| `H` | Show/hide the cheatsheet (the `[H]` reminder stays visible) |
 | `1` | Ammunition Requisition |
 | `2` | Perimeter Defense (floor Sentinel) |
 | `3` | Painkillers (health to 300) |

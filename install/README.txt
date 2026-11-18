@@ -46,6 +46,7 @@ CONTROLS
     Q / E                Switch full 1-9 hotbar <-> page picker
     1 / 2 (page picker)  Open Personal / Machinery page
     Crouch (C or Ctrl)   Back out: page -> picker -> full hotbar
+    H                    Show/hide the cheatsheet; the H hint stays visible
 
 
 TRANSMAT SLOTS

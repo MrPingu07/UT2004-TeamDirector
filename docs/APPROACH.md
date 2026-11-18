@@ -449,7 +449,10 @@ move.
    one control per line, no separators:
    `[Wheel] Cycle Fighter Feed`, `[Hold Fire/AltFire] Zoom Cam`,
    `[Hold Jump] Heal`, `[1-9] Transmat Drop`, `[B] Toggle Booth`,
-   `[Q/E] Hotbar Pages | [1/2] Select Page | [Crouch] Back`.
+   `[Q/E] Hotbar Pages`, `[1/2] Select Page`, `[Crouch] Back`,
+   `[H] Hide controls`.
+   Pressing `H` hides every line except `[H] Show controls`, which restores
+   the full list. The cheatsheet starts visible each time the booth opens.
 4. **Bottom-right `TeamMates` counter**, kept above the chat area and the
    "Now spectating..." banner (`ClipY - 14 - 8/7/6*LineH`):
    - cyan header `TeamMates`;
