@@ -306,6 +306,8 @@ function PostRender(Canvas C)
     local string L5;
     local array<Pawn> Pawns;
     local Pawn P;
+    local DirectorSentinel DS;
+    local int SentinelIdx;
     local vector Head;
     local vector Screen;
     local vector CamLoc;
@@ -422,10 +424,16 @@ function PostRender(Canvas C)
     C.GetCameraLocation(CamLoc, CamRot);
     RI.GetFriendlyPawns(Pawns);
 
+    // Draw 3-line nameplates for PLAYERS ONLY (skip vehicles/sentinels).
+    // Vehicles get 2-line turret beacons drawn separately below.
     for (i = 0; i < Pawns.Length; i++)
     {
         P = Pawns[i];
         if (P == None || P.Health <= 0)
+            continue;
+
+        // Skip vehicles (including sentinels) - they get turret beacons instead.
+        if (Vehicle(P) != None)
             continue;
 
         Head = P.Location + vect(0,0,60);
@@ -475,6 +483,48 @@ function PostRender(Canvas C)
         DrawLine(C, Screen.X - XL * 0.5, Screen.Y - (2.0 * LineH), PlateText, TeamColor);
 
         PlateText = "Shield [" $ int(P.ShieldStrength) $ "]";
+        C.StrLen(PlateText, XL, YL);
+        DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
+    }
+
+    // -- always-visible turret beacons (for Director) ------------------------
+    // Draw 2-line beacons for friendly sentinels: Sentinel(n) / HP [X/X]
+    // No LOS check for Director - they see everything through the broadcast feed.
+
+    for (SentinelIdx = 0; SentinelIdx < 16; SentinelIdx++)
+    {
+        DS = DirectorSentinel(RI.TeamTurrets[SentinelIdx]);
+        if (DS == None || DS.bDeleteMe || DS.Health <= 0)
+            continue;
+
+        Head = DS.Location + vect(0,0,60);
+
+        // Skip anything behind the camera.
+        if ((Head - CamLoc) Dot vector(CamRot) <= 0.0)
+            continue;
+
+        Screen = C.WorldToScreen(Head);
+        if (Screen.X < 0.0 || Screen.X > C.ClipX ||
+            Screen.Y < 0.0 || Screen.Y > C.ClipY)
+            continue;
+
+        // Team colours (same as player nameplates)
+        if (DS.GetTeamNum() == 0)
+        {
+            TeamColor.R = 255; TeamColor.G = 0;   TeamColor.B = 0;   TeamColor.A = 255;
+        }
+        else
+        {
+            TeamColor.R = 51;  TeamColor.G = 102; TeamColor.B = 255; TeamColor.A = 255;
+        }
+
+        // Two centred lines: Sentinel(n) / HP [X/X]
+        // No shield line: sentinels are walk-through turrets, not fighters.
+        PlateText = "Sentinel(" $ (SentinelIdx + 1) $ ")";
+        C.StrLen(PlateText, XL, YL);
+        DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
+
+        PlateText = "HP [" $ DS.Health $ "/" $ int(DS.HealthMax) $ "]";
         C.StrLen(PlateText, XL, YL);
         DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
     }

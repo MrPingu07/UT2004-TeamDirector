@@ -119,4 +119,5 @@ simulated event PostRender(Canvas C)
 defaultproperties
 {
     VehicleNameString=""
+    bNoTeamBeacon=True  // Disable native team beacon system for this sentinel entirely.
 }

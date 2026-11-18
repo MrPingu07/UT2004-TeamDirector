@@ -174,7 +174,6 @@ verify roster count and respawn.
 
 ## Non-goals
 
-- Replacing the stock HUD.
 - Subclassing every team gametype.
 - Adding networked custom assets (textures, meshes, sounds).
 - Turning the Director into a combatant.

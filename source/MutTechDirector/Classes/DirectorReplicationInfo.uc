@@ -115,6 +115,9 @@ var bool bEntrySawPawn;
 var transient DirectorInteraction DirectorInteractionRef;
 var transient int AttachTries;
 
+/** Original HUD class, saved on the client so we can restore it on exit. */
+var transient class<HUD> OriginalHUDClass;
+
 // ---------------------------------------------------------------------------
 // Replication
 // ---------------------------------------------------------------------------
@@ -246,6 +249,21 @@ simulated function TryAttachInteraction()
 
 simulated event Destroyed()
 {
+    // Safety net: restore the original HUD if we're being destroyed without
+    // going through ClientCloseBooth (e.g., network disconnect, level change).
+    if (DirectorPC == None || DirectorPC.bDeleteMe)
+        DirectorPC = PlayerController(Owner);
+
+    if (DirectorPC != None && !DirectorPC.bDeleteMe && OriginalHUDClass != None)
+    {
+        DirectorPC.myHUD = Spawn(OriginalHUDClass, DirectorPC);
+        if (DirectorPC.myHUD != None)
+        {
+            log("MutTechDirector: Destroyed - restored original HUD=" $ OriginalHUDClass);
+        }
+        OriginalHUDClass = None;
+    }
+
     if (DirectorInteractionRef != None)
     {
         DirectorInteractionRef.Cleanup();
@@ -313,6 +331,46 @@ function ActivateBooth()
     bBoothPending = False;
     bDirectorActive = True;
     RefreshTurretList();
+
+    // Swap to the custom Director HUD on the owning client.
+    // This must be a simulated RPC so the client replaces its stock HUD.
+    ClientActivateBooth();
+}
+
+/**
+ * Client-side RPC: replace the stock HUD with DirectorHUD.
+ * Called from ActivateBooth() on the server via replication.
+ * The custom HUD suppresses native vehicle name drawing (which cannot be
+ * suppressed from UnrealScript otherwise) and provides a clean canvas for
+ * DirectorInteraction.PostRender to draw all telemetry.
+ */
+simulated function ClientActivateBooth()
+{
+    local DirectorHUD NewHUD;
+
+    if (DirectorPC == None || DirectorPC.bDeleteMe)
+        DirectorPC = PlayerController(Owner);
+
+    if (DirectorPC == None || DirectorPC.bDeleteMe || DirectorPC.myHUD == None)
+    {
+        log("MutTechDirector: ClientActivateBooth - ABORT: DirectorPC=" $ DirectorPC $ " myHUD=" $ DirectorPC.myHUD);
+        return;
+    }
+
+    // Save the original HUD class so we can restore it on exit.
+    OriginalHUDClass = DirectorPC.myHUD.Class;
+
+    // Spawn and set the custom Director HUD.
+    NewHUD = Spawn(class'DirectorHUD', DirectorPC);
+    if (NewHUD != None)
+    {
+        DirectorPC.myHUD = NewHUD;
+        log("MutTechDirector: ClientActivateBooth - swapped to DirectorHUD, saved original=" $ OriginalHUDClass $ " oldHUD=" $ OriginalHUDClass);
+    }
+    else
+    {
+        log("MutTechDirector: ClientActivateBooth - FAILED to spawn DirectorHUD");
+    }
 }
 
 /** Refresh the replicated list of friendly turrets for beacon display. */
@@ -910,6 +968,24 @@ simulated function ClientNotify(string S)
  */
 simulated function ClientCloseBooth(optional string NotifyText)
 {
+    // Restore the original HUD before cleaning up the Interaction.
+    if (DirectorPC == None || DirectorPC.bDeleteMe)
+        DirectorPC = PlayerController(Owner);
+
+    if (DirectorPC != None && !DirectorPC.bDeleteMe && OriginalHUDClass != None)
+    {
+        DirectorPC.myHUD = Spawn(OriginalHUDClass, DirectorPC);
+        if (DirectorPC.myHUD != None)
+        {
+            log("MutTechDirector: ClientCloseBooth - restored original HUD=" $ OriginalHUDClass);
+        }
+        else
+        {
+            log("MutTechDirector: ClientCloseBooth - FAILED to restore original HUD=" $ OriginalHUDClass);
+        }
+        OriginalHUDClass = None;
+    }
+
     if (DirectorInteractionRef != None)
     {
         DirectorInteractionRef.Cleanup();
