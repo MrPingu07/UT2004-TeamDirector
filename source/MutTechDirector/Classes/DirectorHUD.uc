@@ -203,6 +203,11 @@ simulated function DrawSpectatingHud(Canvas C)
     local string RedScore, BlueScore;
     local float RedW, BlueW, DashW, TScoreY, TTotalW, TStartX;
     local HUD MyHUD;
+
+    // Resolution-independent scaling
+    local float Scale;
+    
+    Scale = C.ClipY / 480.0;
     
     // First, draw the native chat feed at its native position (bottom of screen)
     DisplayLocalMessages(C);
@@ -235,8 +240,8 @@ simulated function DrawSpectatingHud(Canvas C)
         TeamColor.R = 100; TeamColor.G = 150; TeamColor.B = 255; TeamColor.A = 255;
     }
     
-    // Banner dimensions (80px fixed height)
-    BannerHeight = 80.0;
+    // Banner dimensions (8% of screen height, scaled)
+    BannerHeight = 80.0 * Scale;
     BannerY = C.ClipY - BannerHeight;
     BannerX = 0.0;
     BannerWidth = C.ClipX;
@@ -248,19 +253,19 @@ simulated function DrawSpectatingHud(Canvas C)
     C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, BannerHeight);
     C.Style = ERenderStyle.STY_Normal;
     
-    // Team-colored stripes at top and bottom of banner (3px each)
-    StripeWidth = 3.0;
+    // Team-colored stripes at top and bottom of banner (3px scaled)
+    StripeWidth = 3.0 * Scale;
     C.SetDrawColor(StripeColor.R, StripeColor.G, StripeColor.B, 255);
     C.SetPos(0, BannerY);
-    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, 3.0);
-    C.SetPos(0, BannerY + BannerHeight - 3.0);
-    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, 3.0);
+    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, StripeWidth);
+    C.SetPos(0, BannerY + BannerHeight - StripeWidth);
+    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, StripeWidth);
     
     // Stock spectator HUD logo (LastManStanding.LMSLogoSmall) at left, scaled to banner
-    // Matches HudBDeathMatch/HudCDeathmatch: logo height = BannerHeight + 16, drawn 8px above banner top
-    LogoSize = BannerHeight + 16.0;  // 96px for 80px banner
+    // Matches HudBDeathMatch/HudCDeathmatch: logo height = BannerHeight + 16*Scale, drawn 8*Scale above banner top
+    LogoSize = BannerHeight + 16.0 * Scale;
     LogoX = 0.0;
-    LogoY = BannerY - 8.0;
+    LogoY = BannerY - 8.0 * Scale;
     
     C.Style = ERenderStyle.STY_Alpha;
     C.SetDrawColor(255, 255, 255, 255);
@@ -281,8 +286,8 @@ simulated function DrawSpectatingHud(Canvas C)
         GRI = PlayerOwner.GameReplicationInfo;
         if (GRI != None && ArrayCount(GRI.Teams) >= 2)
         {
-            RedScore = string(GRI.Teams[0].Score);
-            BlueScore = string(GRI.Teams[1].Score);
+            RedScore = string(int(GRI.Teams[0].Score));
+            BlueScore = string(int(GRI.Teams[1].Score));
             
             C.Font = C.MedFont;
             C.StrLen(RedScore, RedW, PH);
@@ -292,7 +297,7 @@ simulated function DrawSpectatingHud(Canvas C)
             // Centered text: Red - Blue
             TTotalW = RedW + DashW + BlueW;
             TStartX = (C.ClipX - TTotalW) * 0.5;
-            TScoreY = 16.0;
+            TScoreY = 16.0 * Scale;
             
             // Red score
             C.SetDrawColor(255, 80, 80, 255);
@@ -364,7 +369,7 @@ simulated function DrawSpectatingHud(Canvas C)
         C.Style = ERenderStyle.STY_Alpha;
         C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
         C.SetPos(CursorX, TextYPos);
-        C.DrawTileStretched(material'InterfaceContent.SquareBoxA', 8.0, PH);
+        C.DrawTileStretched(material'InterfaceContent.SquareBoxA', 8.0 * Scale, PH);
         C.Style = OldStyle;
     }
 

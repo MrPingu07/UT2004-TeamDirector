@@ -346,6 +346,9 @@ function PostRender(Canvas C)
     local string PlateText;
     local int Pass;
 
+    // Resolution-independent scaling
+    local float Scale;
+
     if (RI == None || RI.bDeleteMe)
     {
         Cleanup();
@@ -372,10 +375,13 @@ function PostRender(Canvas C)
     C.FontScaleX = 1.0;
     C.FontScaleY = 1.0;
 
+    // Resolution-independent scale factor (base 480p height)
+    Scale = C.ClipY / 480.0;
+
     C.StrLen("Mg", XL, YL);
-    if (YL < 10.0)
-        YL = 12.0;
-    LineH = YL + 2.0;
+    if (YL < 10.0 * Scale)
+        YL = 12.0 * Scale;
+    LineH = YL + 2.0 * Scale;
 
     // Hide hotbar and cheatsheet while F1 scoreboard is open
     if (PC != None && PC.myHUD != None && PC.myHUD.bShowScoreBoard)
@@ -385,8 +391,8 @@ function PostRender(Canvas C)
     else
     {
         // -- top-left: transmat logistics hotbar -------------------------------
-        X = 24.0;
-        Y = 24.0;
+        X = 24.0 * Scale;
+        Y = 24.0 * Scale;
 
         DrawLine(C, X, Y, "[TECHNICAL DIRECTOR LOGISTICS]", White);
         Y += LineH;
@@ -401,7 +407,7 @@ function PostRender(Canvas C)
         }
         DrawLine(C, X, Y, NameText, White);
         C.StrLen(NameText, XL, YL);
-        DrawLine(C, X + XL + 10.0, Y, Status, StatusColor);
+        DrawLine(C, X + XL + 10.0 * Scale, Y, Status, StatusColor);
         Y += LineH;
 
         for (i = 1; i <= 9; i++)
@@ -412,7 +418,7 @@ function PostRender(Canvas C)
 
             DrawLine(C, X, Y, NameText, White);
             C.StrLen(NameText, XL, YL);
-            DrawLine(C, X + XL + 10.0, Y, Status, StatusColor);
+            DrawLine(C, X + XL + 10.0 * Scale, Y, Status, StatusColor);
             Y += LineH;
         }
 
@@ -423,11 +429,11 @@ function PostRender(Canvas C)
         L4 = "[1-9] Transmat Drop";
         L5 = "[B] Toggle Booth";
 
-        DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L1), 24.0, L1, Dim);
-        DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L2), 24.0 + LineH, L2, Dim);
-        DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L3), 24.0 + (2.0 * LineH), L3, Dim);
-        DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L4), 24.0 + (3.0 * LineH), L4, Dim);
-        DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L5), 24.0 + (4.0 * LineH), L5, Dim);
+        DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L1), 24.0 * Scale, L1, Dim);
+        DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L2), 24.0 * Scale + LineH, L2, Dim);
+        DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L3), 24.0 * Scale + (2.0 * LineH), L3, Dim);
+        DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L4), 24.0 * Scale + (3.0 * LineH), L4, Dim);
+        DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, L5), 24.0 * Scale + (4.0 * LineH), L5, Dim);
     }
 
     // -- lower-right: live TeamMates roster counter ------------------------
@@ -447,15 +453,15 @@ function PostRender(Canvas C)
         PlateColor = RatioColor(1.0 - RatioD);
     }
 
-    DrawLine(C, C.ClipX - 24.0 - TextWidth(C, "TeamMates"),
-        C.ClipY - 14.0 - (8.0 * LineH), "TeamMates", Cyan);
+    DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, "TeamMates"),
+        C.ClipY - 14.0 * Scale - (8.0 * LineH), "TeamMates", Cyan);
     NameText = "Alive: " $ RI.TeamAlive;
-    DrawLine(C, C.ClipX - 24.0 - TextWidth(C, NameText),
-        C.ClipY - 14.0 - (7.0 * LineH), NameText, StatusColor);
+    DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, NameText),
+        C.ClipY - 14.0 * Scale - (7.0 * LineH), NameText, StatusColor);
 
     NameText = "Dead: " $ RI.TeamDead;
-    DrawLine(C, C.ClipX - 24.0 - TextWidth(C, NameText),
-        C.ClipY - 14.0 - (6.0 * LineH), NameText, PlateColor);
+    DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, NameText),
+        C.ClipY - 14.0 * Scale - (6.0 * LineH), NameText, PlateColor);
 
     // -- always-visible friendly nameplates / vehicle beacons ------------------
     // No FastTrace / occlusion test: the booth sees the whole arena through
