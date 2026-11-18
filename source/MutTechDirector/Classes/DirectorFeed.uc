@@ -35,6 +35,9 @@ const FALLBACK_TEAM     = "Our Team";
 const FALLBACK_GOAL     = "No Limit";
 const FALLBACK_STATUS   = "Unknown";
 
+/** Hard ceiling for $RANDOM token ranges (keeps K/M math well inside int). */
+const MAX_RANDOM        = 1000000;
+
 /**
  * Replace every supported token in Msg with its live value.
  *
@@ -109,10 +112,9 @@ static function string ExpandTokens(string Msg, PlayerController PC)
     ReplaceText(Msg, "$MATCHSTATUS", GetMatchStatus(GRI));
     ReplaceText(Msg, "$TIMEELAPSED", FormatClock(GetElapsedTime(GRI)));
     ReplaceText(Msg, "$TIMEREMAINING", GetTimeRemaining(GRI));
-    ReplaceText(Msg, "$RANDOM1_9", string(RollRange(1, 9)));
-    ReplaceText(Msg, "$RANDOM1_25", string(RollRange(1, 25)));
-    ReplaceText(Msg, "$RANDOM25_50", string(RollRange(25, 50)));
-    ReplaceText(Msg, "$RANDOM75_100", string(RollRange(75, 100)));
+
+    // Dynamic $RANDOM<min>_<max> tokens (optionally K/M-scaled).
+    Msg = ExpandRandomTokens(Msg);
 
     // Second pass: force inserted values (usernames, map/server/team names)
     // to uppercase too. The template was already uppercased, so this only
@@ -131,6 +133,113 @@ static function int RollRange(int Min, int Max)
         return Min;
 
     return Min + Rand(Max - Min + 1);
+}
+
+/**
+ * Expand every well-formed $RANDOM<min>_<max> token, with an optional K or M
+ * suffix on the maximum.  Examples:
+ *
+ *     $RANDOM1_9       -> 1..9
+ *     $RANDOM25_50     -> 25..50
+ *     $RANDOM1_50K     -> 1..50000, printed as a full integer (e.g. 43781)
+ *     $RANDOM1_5M      -> 1..5000000, clamped to the hard ceiling below
+ *
+ * UnrealScript has no regex, so the token is parsed by hand.  Malformed
+ * occurrences are left untouched and scanning resumes after them, so one bad
+ * token does not prevent later valid tokens from expanding.
+ */
+static function string ExpandRandomTokens(string Msg)
+{
+    local int SearchFrom, Pos, i, MinStart, MinVal, MaxVal, Mult;
+    local string Token, Suffix;
+
+    SearchFrom = 0;
+    while (SearchFrom < Len(Msg))
+    {
+        Pos = InStr(Right(Msg, Len(Msg) - SearchFrom), "$RANDOM");
+        if (Pos < 0)
+            break;
+        Pos += SearchFrom;
+
+        i = Pos + Len("$RANDOM");
+
+        // Minimum: one or more digits.
+        MinStart = i;
+        while (i < Len(Msg) && IsDigit(Mid(Msg, i, 1)))
+            i++;
+        if (i == MinStart || i >= Len(Msg) || Mid(Msg, i, 1) != "_")
+        {
+            SearchFrom = Pos + 1;
+            continue;
+        }
+        MinVal = ParseDigits(Mid(Msg, MinStart, i - MinStart));
+        i++;
+
+        // Maximum: one or more digits.
+        MinStart = i;
+        while (i < Len(Msg) && IsDigit(Mid(Msg, i, 1)))
+            i++;
+        if (i == MinStart)
+        {
+            SearchFrom = Pos + 1;
+            continue;
+        }
+        MaxVal = ParseDigits(Mid(Msg, MinStart, i - MinStart));
+
+        // Optional scale suffix.
+        Mult = 1;
+        if (i < Len(Msg))
+        {
+            Suffix = Mid(Msg, i, 1);
+            if (Suffix == "K")
+            {
+                Mult = 1000;
+                i++;
+            }
+            else if (Suffix == "M")
+            {
+                Mult = 1000000;
+                i++;
+            }
+        }
+
+        // Clamp before multiplying to keep the int arithmetic safe.
+        if (MaxVal > MAX_RANDOM / Mult)
+            MaxVal = MAX_RANDOM / Mult;
+        MaxVal *= Mult;
+
+        if (MaxVal >= MinVal)
+        {
+            Token = Mid(Msg, Pos, i - Pos);
+            ReplaceText(Msg, Token, string(RollRange(MinVal, MaxVal)));
+        }
+
+        SearchFrom = Pos + 1;
+    }
+
+    return Msg;
+}
+
+static function bool IsDigit(string S)
+{
+    local int C;
+
+    if (Len(S) != 1)
+        return False;
+
+    C = Asc(S);
+    return C >= 48 && C <= 57;
+}
+
+/** Parse an all-digit string; callers have already validated the characters. */
+static function int ParseDigits(string S)
+{
+    local int i, Value;
+
+    for (i = 0; i < Len(S); i++)
+        Value = Value * 10 + (Asc(Mid(S, i, 1)) - Asc("0"));
+
+    return Value;
 }
 
 // ---------------------------------------------------------------------------

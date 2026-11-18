@@ -185,9 +185,9 @@ server, map and team names. A player named `xX_Sn1p3r_Xx` is shown as
 - Unknown tokens are left untouched and appear literally.
 - Every token has a defined fallback, so a message never becomes empty just
   because a value is unavailable.
-- Random tokens (`$RANDOM1_9`, `$RANDOM1_25`, `$RANDOM25_50`,
-  `$RANDOM75_100`) are resolved once per message, alongside the live values,
-  and differ per client.
+- Random tokens use the dynamic `$RANDOM<min>_<max>` form (optionally `K`/`M`
+  on the maximum) and are resolved once per message, alongside the live
+  values.
 - Replacement is longest-first. `$TOPFRAGGERSCORE` is replaced before
   `$TOPFRAGGER`, otherwise the shorter token would eat its prefix. Any new
   token that is a prefix of another must follow the same rule.
@@ -263,26 +263,45 @@ Clock format is minutes without leading zero and seconds with two digits:
 
 ### 5.6 Random values
 
-These produce a fresh integer each time a message is selected. The ranges are
-**inclusive** on both ends, and the numbers are resolved during the same
-single expansion pass as every other token, so they stay fixed for the whole
-typewriter cycle.
+`$RANDOM` tokens are dynamic: any `<min>_<max>` pair works, so there is no
+fixed list to extend. The syntax is:
 
-| Token | Prints |
+```text
+$RANDOM<min>_<max>[K|M]
+```
+
+- `<min>` and `<max>` are positive integers.
+- Both endpoints are **inclusive**.
+- An optional `K` or `M` after the maximum multiplies it by 1,000 or
+  1,000,000.
+- The result is always printed as a **full integer**, never as `43K`. So
+  `$RANDOM1_50K` might print `43781`.
+- Maximum is clamped to 1,000,000 to keep the integer math safe.
+
+Examples:
+
+| Token | Range |
 | --- | --- |
-| `$RANDOM1_9` | Random integer from 1 to 9 inclusive |
-| `$RANDOM1_25` | Random integer from 1 to 25 inclusive |
-| `$RANDOM25_50` | Random integer from 25 to 50 inclusive |
-| `$RANDOM75_100` | Random integer from 75 to 100 inclusive |
+| `$RANDOM1_9` | 1 to 9 |
+| `$RANDOM1_25` | 1 to 25 |
+| `$RANDOM25_50` | 25 to 50 |
+| `$RANDOM75_100` | 75 to 100 |
+| `$RANDOM1_50K` | 1 to 50,000 |
+| `$RANDOM1_5M` | 1 to 5,000,000, clamped to 1,000,000 |
 
-Randomness is local to each client, not replicated: two Directors watching the
-same message can see different values. That matches the cosmetic nature of the
-feed. The ranges deliberately overlap at 25; `25` can come from either of the
-25-range tokens.
+Malformed tokens (`$RANDOM`, `$RANDOM1_`, `$RANDOM50_10`) are left untouched
+so authoring mistakes are visible; later valid tokens in the same message still
+expand.
+
+Each token is rolled independently, once per message, during the same single
+expansion pass as every other token, so it stays fixed for the whole typewriter
+cycle. Randomness is local to each client, not replicated: two Directors
+watching the same message can see different values.
 
 ```text
 TONIGHT'S CROWD: $RANDOM75_100 PERCENT HERE FOR THE VIOLENCE.
 ODDS OF SURVIVAL: $RANDOM1_9 OUT OF 9. ODDS OF STYLE: $RANDOM25_50.
+GRAY MARKET PAYOUT: $RANDOM1_50K CREDITS.
 ```
 
 ---
@@ -450,9 +469,9 @@ Expected; see §10.
   with unusual control sequences will render exactly as the game would render
   it.
 - **No width filter.** See §4.3.
-- **Random tokens are per client.** `$RANDOM1_9`, `$RANDOM1_25`,
-  `$RANDOM25_50` and `$RANDOM75_100` are rolled locally when the message is
-  selected, so two clients can show different numbers for the same feed entry.
+- **Random tokens are per client.** Any `$RANDOM<min>_<max>` token is rolled
+  locally when the message is selected, so two clients can show different
+  numbers for the same feed entry.
 
 ---
 
