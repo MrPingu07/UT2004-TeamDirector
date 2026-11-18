@@ -142,9 +142,11 @@ function Tick(float DeltaTime)
 
     ZoomDistance = FClamp(ZoomDistance, 120.0, 1500.0);
 
+    // Use a fixed reference radius (40) so zoom distance always represents
+    // world-space distance regardless of target size.
+    // Vehicles have large CollisionRadius which would otherwise make
+    // the same ZoomDistance produce a much closer camera.
     Radius = 40.0;
-    if (RI.CurrentTarget != None)
-        Radius = FMax(1.0, RI.CurrentTarget.Default.CollisionRadius);
 
     PC.CameraDist = FClamp(ZoomDistance / Radius, 1.0, 400.0);
 
