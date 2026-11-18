@@ -85,7 +85,7 @@ simulated function DrawMessage(Canvas C, int i, float PosX, float PosY, out floa
  * - Unreal "U" logo at left margin
  * - Dark transparent horizontal band spanning screen width
  * - Team-colored stripes at top and bottom edges
- * - Custom scrolling text area (3x larger) in the middle
+ * - Custom scrolling text area (3x larger) in the middle with native clipping
  * Chat feed is drawn first via DisplayLocalMessages at its native position.
  */
 simulated function DrawSpectatingHud(Canvas C)
@@ -113,11 +113,14 @@ simulated function DrawSpectatingHud(Canvas C)
     local Pawn TargetPawn;
     local PlayerReplicationInfo TargetPRI;
     local float TextY;
+    local float CharWidth;
+    local int VisibleStart;
+    local int VisibleEnd;
+    local int VisibleChars;
+    local float VisibleWidth;
+    local string VisibleText;
+    local float DrawX;
     local float LoopX;
-    local float SavedOrgX;
-    local float SavedOrgY;
-    local float SavedClipX;
-    local float SavedClipY;
     
     // First, draw the native chat feed at its native position (bottom of screen)
     DisplayLocalMessages(C);
@@ -150,7 +153,7 @@ simulated function DrawSpectatingHud(Canvas C)
         TeamColor.R = 100; TeamColor.G = 150; TeamColor.B = 255; TeamColor.A = 255;
     }
     
-    // Banner dimensions - keep at bottom
+    // Banner dimensions
     BannerHeight = 80.0;
     BannerY = C.ClipY - BannerHeight;
     BannerX = 0.0;
@@ -181,7 +184,58 @@ simulated function DrawSpectatingHud(Canvas C)
     C.SetDrawColor(255, 255, 255, 255);
     C.SetPos(LogoX, LogoY);
     C.DrawTile(
-        Texture'InterfaceContent.Logos.Logo',  // UT2004/Unreal logo texture
+        Texture'InterfaceContent.Logos.Logo',
+        48.0, 48.0,
+        0, 0,
+        256, 256
+    );
+    C.Style = ERenderStyle.STY_Normal;
+    
+    // Team color for stripes and text
+    if (TeamNum == 0)
+    {
+        // Red team
+        StripeColor.R = 255; StripeColor.G = 0;   StripeColor.B = 0;   StripeColor.A = 255;
+        TeamColor.R = 255; TeamColor.G = 100; TeamColor.B = 100; TeamColor.A = 255;
+    }
+    else
+    {
+        // Blue team
+        StripeColor.R = 51;  StripeColor.G = 102; StripeColor.B = 255; StripeColor.A = 255;
+        TeamColor.R = 100; TeamColor.G = 150; TeamColor.B = 255; TeamColor.A = 255;
+    }
+    
+    // Banner dimensions - keep at bottom
+    BannerHeight = 80.0;
+    BannerY = C.ClipY - BannerHeight;
+    BannerX = 0.0;
+    BannerWidth = C.ClipX;
+    
+    // Dark transparent band (80% opacity black)
+    C.Style = ERenderStyle.STY_Alpha;
+    C.SetDrawColor(0, 0, 0, 204);
+    C.SetPos(0, BannerY);
+    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, BannerHeight);
+    C.Style = ERenderStyle.STY_Normal;
+    
+    // Team-colored stripes at top and bottom of banner (3px each)
+    C.SetDrawColor(StripeColor.R, StripeColor.G, StripeColor.B, 255);
+    C.SetPos(0, BannerY);
+    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, 3.0);
+    C.SetPos(0, BannerY + BannerHeight - 3.0);
+    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, 3.0);
+    
+    // Unreal "U" logo at LEFT margin (front layer)
+    LogoSize = 48.0;
+    LogoX = 16.0;  // Left margin
+    LogoY = BannerY + (BannerHeight - LogoSize) * 0.5;
+    
+    // Draw Unreal "U" logo
+    C.Style = ERenderStyle.STY_Alpha;
+    C.SetDrawColor(255, 255, 255, 255);
+    C.SetPos(LogoX, LogoY);
+    C.DrawTile(
+        Texture'InterfaceContent.Logos.Logo',
         48.0, 48.0,
         0, 0,
         256, 256
@@ -206,31 +260,99 @@ simulated function DrawSpectatingHud(Canvas C)
     TextX = C.ClipX - (Level.TimeSeconds * 80.0 % (TextWidth + C.ClipX));
     TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
     
-    // Draw scrolling text using native canvas clipping for smooth ticker effect
-    // Save original canvas state
-    SavedOrgX = C.OrgX;
-    SavedOrgY = C.OrgY;
-    SavedClipX = C.ClipX;
-    SavedClipY = C.ClipY;
-    
-    // Set clipping region to banner area
-    C.SetOrigin(BannerX, BannerY);
-    C.SetClip(BannerWidth, BannerHeight);
+    // Draw scrolling text with substring-based clipping
+    // Estimate average character width for clipping
+    CharWidth = TextWidth / Len(ScrollText);
     
     C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
+    C.Font = C.MedFont;
     
-    // Primary copy: scrolls within clipped region
-    C.SetPos(TextX - BannerX, TextYPos - BannerY);
-    C.DrawText(ScrollText, false);
+    // Calculate visible substring range based on TextX position
+    // TextX is the left edge of the text in screen coordinates
+    // Visible range: X = 0 to C.ClipX
     
-    // Loop copy: immediately after primary for seamless scrolling
+    // Calculate which characters are visible
+    if (TextX < 0)
+    {
+        // Text starts off-screen left, skip first N characters
+        VisibleStart = int((-TextX) / CharWidth);
+        if (VisibleStart >= Len(ScrollText))
+            VisibleStart = Len(ScrollText) - 1;
+    }
+    else
+    {
+        VisibleStart = 0;
+    }
+    
+    // Calculate how many characters fit on screen
+    VisibleWidth = C.ClipX - TextX;
+    if (VisibleWidth > TextWidth)
+        VisibleWidth = TextWidth;
+    
+    VisibleChars = int(VisibleWidth / CharWidth);
+    if (VisibleChars > Len(ScrollText) - VisibleStart)
+        VisibleChars = Len(ScrollText) - VisibleStart;
+    
+    VisibleEnd = VisibleStart + VisibleChars;
+    if (VisibleEnd > Len(ScrollText))
+        VisibleEnd = Len(ScrollText);
+    
+    VisibleText = Mid(ScrollText, VisibleStart, VisibleEnd - VisibleStart);
+    
+    // Draw visible substring at clamped position
+    DrawX = TextX;
+    if (DrawX < 0)
+        DrawX = 0;
+    
+    // Only draw if there's visible text
+    if (VisibleEnd > VisibleStart)
+    {
+        C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
+        C.Font = C.MedFont;
+        C.SetPos(DrawX, TextYPos);
+        C.DrawText(VisibleText, false);
+    }
+    
+    // Loop copy for seamless scrolling
     LoopX = TextX + TextWidth;
-    C.SetPos(LoopX - BannerX, TextYPos - BannerY);
-    C.DrawText(ScrollText, false);
-    
-    // Restore canvas state
-    C.SetOrigin(SavedOrgX, SavedOrgY);
-    C.SetClip(SavedClipX, SavedClipY);
+    if (LoopX < C.ClipX && LoopX + TextWidth > 0)
+    {
+        // Calculate visible portion of loop copy
+        if (LoopX < 0)
+        {
+            VisibleStart = int((-LoopX) / CharWidth);
+            if (VisibleStart >= Len(ScrollText))
+                VisibleStart = Len(ScrollText) - 1;
+        }
+        else
+        {
+            VisibleStart = 0;
+        }
+        
+        VisibleWidth = C.ClipX - LoopX;
+        if (VisibleWidth > TextWidth)
+            VisibleWidth = TextWidth;
+        
+        VisibleChars = int(VisibleWidth / CharWidth);
+        if (VisibleChars > Len(ScrollText) - VisibleStart)
+            VisibleChars = Len(ScrollText) - VisibleStart;
+        
+        VisibleEnd = VisibleStart + VisibleChars;
+        if (VisibleEnd > Len(ScrollText))
+            VisibleEnd = Len(ScrollText);
+        
+        VisibleText = Mid(ScrollText, VisibleStart, VisibleEnd - VisibleStart);
+        
+        DrawX = LoopX;
+        if (DrawX < 0)
+            DrawX = 0;
+        
+        if (VisibleEnd > VisibleStart)
+        {
+            C.SetPos(DrawX, TextYPos);
+            C.DrawText(VisibleText, false);
+        }
+    }
 }
 
 defaultproperties
