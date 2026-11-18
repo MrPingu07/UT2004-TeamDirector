@@ -497,18 +497,19 @@ function TickEntryCountdown(float DeltaTime)
 {
     local int Secs;
 
-    // Dying during the delay cancels the entry.  This is the whole point of
-    // the delay: the booth can no longer be used to dodge an imminent death.
+    // Update DirectorTeam if player switched teams during entry delay
+    if (DirectorPC != None && DirectorPC.PlayerReplicationInfo != None &&
+        DirectorPC.PlayerReplicationInfo.Team != None)
+    {
+        DirectorTeam = DirectorPC.PlayerReplicationInfo.Team.TeamIndex;
+    }
+
+    // Death no longer cancels entry - allow entering booth even if dead
     if (DirectorPC.Pawn != None && DirectorPC.Pawn.Health > 0)
     {
         bEntrySawPawn = True;
     }
-    else if (bEntrySawPawn)
-    {
-        ClientNotify("Technical Director entry cancelled: you died.");
-        AbortPendingEntry();
-        return;
-    }
+    // Removed: death cancellation logic
 
     EntryTimeLeft -= DeltaTime;
 
@@ -758,6 +759,17 @@ event Tick(float DeltaTime)
 
     if (!bDirectorActive)
         return;
+
+    // Update DirectorTeam if player switched teams while booth is active
+    if (DirectorPC != None && DirectorPC.PlayerReplicationInfo != None &&
+        DirectorPC.PlayerReplicationInfo.Team != None)
+    {
+        if (DirectorTeam != DirectorPC.PlayerReplicationInfo.Team.TeamIndex)
+        {
+            DirectorTeam = DirectorPC.PlayerReplicationInfo.Team.TeamIndex;
+            RefreshTurretList(); // Re-attach beacons to new team
+        }
+    }
 
     // Some gametypes (notably Assault and Onslaught round resets) call
     // GameInfo.RestartPlayer() for every non-spectator PRI.  The Director is

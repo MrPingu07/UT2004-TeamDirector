@@ -190,6 +190,7 @@ simulated function DrawSpectatingHud(Canvas C)
     local int TeamNum;
     local Pawn TargetPawn;
     local PlayerReplicationInfo TargetPRI;
+    local DirectorReplicationInfo DirRI;
 
     // Typewriter + cursor locals
     local float CycleElapsed, PhaseStart, PhaseTime;
@@ -203,6 +204,9 @@ simulated function DrawSpectatingHud(Canvas C)
     local string RedScore, BlueScore;
     local float RedW, BlueW, DashW, TScoreY, TTotalW, TStartX;
     local HUD MyHUD;
+    local float TimeW, TimeY;
+    local int Minutes, Seconds;
+    local string TimeStr;
 
     // Resolution-independent scaling (1024x768 as reference = scale 1.0)
     local float Scale;
@@ -212,19 +216,37 @@ simulated function DrawSpectatingHud(Canvas C)
     // First, draw the native chat feed at its native position (bottom of screen)
     DisplayLocalMessages(C);
     
-    // Don't draw our custom banner if no valid target or not spectating a teammate
-    if (PlayerOwner == None || PlayerOwner.ViewTarget == None)
+    // Don't draw our custom banner if no valid player owner
+    if (PlayerOwner == None)
         return;
     
+    // Try to get target info, but don't bail if target dies - banner persists
     TargetPawn = Pawn(PlayerOwner.ViewTarget);
-    if (TargetPawn == None || TargetPawn.Health <= 0)
-        return;
+    if (TargetPawn != None)
+        TargetPRI = TargetPawn.PlayerReplicationInfo;
+    else
+        TargetPRI = None;
     
-    TargetPRI = TargetPawn.PlayerReplicationInfo;
-    if (TargetPRI == None)
-        return;
-    
-    TeamNum = TargetPawn.GetTeamNum();
+    // Determine team: use live target, or fall back to Director's team from ReplicationInfo
+    if (TargetPRI != None && TargetPawn != None && TargetPawn.Health > 0)
+    {
+        TeamNum = TargetPawn.GetTeamNum();
+    }
+    else
+    {
+        // Find DirectorReplicationInfo attached to PlayerOwner (DirectorPC)
+        foreach AllActors(class'DirectorReplicationInfo', DirRI)
+        {
+            if (DirRI != None && DirRI.DirectorTeam != 255 && DirRI.DirectorPC == PlayerOwner)
+            {
+                TeamNum = DirRI.DirectorTeam;
+                break;
+            }
+        }
+        // Default to red if no RI found
+        if (DirRI == None || DirRI.DirectorTeam == 255)
+            TeamNum = 0;
+    }
     
     // Team color for stripes and text
     if (TeamNum == 0)
@@ -279,7 +301,7 @@ simulated function DrawSpectatingHud(Canvas C)
     );
     C.Style = ERenderStyle.STY_Normal;
     
-    // Team score counter at top center (hidden during F1) - simple integers only, 3x size
+    // Team score counter at top center (hidden during F1) - simple integers only, 2x size
     MyHUD = PlayerOwner.myHUD;
     if (PlayerOwner != None && MyHUD != None && !MyHUD.bShowScoreBoard)
     {
@@ -290,11 +312,29 @@ simulated function DrawSpectatingHud(Canvas C)
             BlueScore = string(int(GRI.Teams[1].Score));
             
             C.Font = C.MedFont;
-            C.FontScaleX = 3.0;
-            C.FontScaleY = 3.0;
+            C.FontScaleX = 2.0;
+            C.FontScaleY = 2.0;
             C.StrLen(RedScore, RedW, PH);
             C.StrLen(BlueScore, BlueW, PH);
             C.StrLen(" - ", DashW, PH);
+            
+            // Match time remaining (mm:ss) in white above score counter
+            
+            if (Level.Game != None)
+            {
+                Minutes = int((Level.Game.TimeLimit * 60.0 - Level.TimeSeconds) / 60.0);
+                Seconds = int((Level.Game.TimeLimit * 60.0 - Level.TimeSeconds)) % 60;
+                if (Minutes < 0) Minutes = 0;
+                if (Seconds < 0) Seconds = 0;
+                TimeStr = string(Minutes) $ ":" $ string(Seconds);
+                if (Seconds < 10) TimeStr = string(Minutes) $ ":0" $ string(Seconds);
+                
+                C.StrLen(TimeStr, TimeW, PH);
+                TimeY = TScoreY - PH * 2.5; // Above score counter with spacing
+                C.SetDrawColor(255, 255, 255, 255);
+                C.SetPos((C.ClipX - TimeW) * 0.5, TimeY);
+                C.DrawText(TimeStr);
+            }
             
             // Centered text: Red - Blue
             TTotalW = RedW + DashW + BlueW;
