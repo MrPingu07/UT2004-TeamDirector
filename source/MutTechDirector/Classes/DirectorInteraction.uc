@@ -307,9 +307,11 @@ function PostRender(Canvas C)
     local array<Pawn> Pawns;
     local Pawn P;
     local Vehicle V;
+    local Vehicle CheckV;
     local Pawn DriverP;
     local bool bIsSentry;
     local bool bHasDriver;
+    local bool bIsHighlighted;
     local int NumLines;
     local vector Head;
     local vector Screen;
@@ -433,6 +435,10 @@ function PostRender(Canvas C)
         if (P == None || P.Health <= 0)
             continue;
 
+        // Skip driver pawns that are inside vehicles (they're hidden, we draw the vehicle instead)
+        if (P.DrivenVehicle != None)
+            continue;
+
         Head = P.Location + vect(0,0,60);
 
         // Skip anything behind the camera.
@@ -460,26 +466,31 @@ function PostRender(Canvas C)
 
             if (bHasDriver)
             {
-                // Same fallback chain as on-foot players: PRI -> Controller's PRI -> Pawn.Name
+                // Fallback chain for vehicle drivers:
+                // 1. Driver pawn's PRI (usually None when in vehicle - UnPossessed clears it)
+                // 2. Driver pawn's Controller's PRI (usually None - controller possesses vehicle)
+                // 3. Driver pawn's DrivenVehicle PRI (vehicle gets controller's PRI when possessed)
+                // 4. Driver pawn's Name (fallback to class name like "2k4xPawn")
                 if (DriverP.PlayerReplicationInfo != None)
                     DisplayName = DriverP.PlayerReplicationInfo.PlayerName;
                 else if (DriverP.Controller != None && DriverP.Controller.PlayerReplicationInfo != None)
                     DisplayName = DriverP.Controller.PlayerReplicationInfo.PlayerName;
+                else if (DriverP.DrivenVehicle != None && DriverP.DrivenVehicle.PlayerReplicationInfo != None)
+                    DisplayName = DriverP.DrivenVehicle.PlayerReplicationInfo.PlayerName;
                 else
                     DisplayName = string(DriverP.Name);
                 NumLines = 3;  // DriverName / HP / Shield
             }
             else if (bIsSentry)
             {
+                // Sentinels are never drivable, always show
                 DisplayName = "Sentry";
                 NumLines = 2;  // Sentry / HP [X/X]
             }
             else
             {
-                DisplayName = V.VehicleNameString;
-                if (DisplayName == "")
-                    DisplayName = string(P.Name);
-                NumLines = 2;  // VehicleName / HP [X/X]
+                // Empty non-sentry vehicle - hide it entirely
+                continue;
             }
         }
         else
@@ -495,13 +506,24 @@ function PostRender(Canvas C)
             NumLines = 3;  // Name / HP / Shield
         }
 
+        // Check if this pawn (or its driver, if vehicle) is the current target
+        CheckV = Vehicle(P);
+        if (CheckV != None && CheckV.Driver != None)
+        {
+            bIsHighlighted = (CheckV.Driver == RI.CurrentTarget);
+        }
+        else
+        {
+            bIsHighlighted = (P == RI.CurrentTarget);
+        }
+
         // Team colours.  Red team is the warm palette, blue team the cool one;
         // the fighter currently on the broadcast feed uses the brighter
         // "selected" variant of its team colour.
         if (P.GetTeamNum() == 0)
         {
             TeamColor.R = 255; TeamColor.G = 0;   TeamColor.B = 0;   TeamColor.A = 255;
-            if (P == RI.CurrentTarget)
+            if (bIsHighlighted)
             {
                 TeamColor.R = 255; TeamColor.G = 153; TeamColor.B = 51;
             }
@@ -509,38 +531,43 @@ function PostRender(Canvas C)
         else
         {
             TeamColor.R = 51;  TeamColor.G = 102; TeamColor.B = 255; TeamColor.A = 255;
-            if (P == RI.CurrentTarget)
+            if (bIsHighlighted)
             {
                 TeamColor.R = 51;  TeamColor.G = 204; TeamColor.B = 255;
             }
         }
 
-        // Draw based on type
+        // Draw based on type - with screen bounds check to prevent wrapping
         if (NumLines == 3)
         {
             // 3 lines: Name / HP / Shield
             PlateText = DisplayName;
             C.StrLen(PlateText, XL, YL);
-            DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 3.0 * LineH, PlateText, TeamColor);
+            if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 3.0 * LineH, PlateText, TeamColor);
 
             PlateText = "HP [" $ P.Health $ "]";
             C.StrLen(PlateText, XL, YL);
-            DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
+            if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
 
             PlateText = "Shield [" $ int(P.ShieldStrength) $ "]";
             C.StrLen(PlateText, XL, YL);
-            DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
+            if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
         }
         else
         {
             // 2 lines: Sentry/VehicleName / HP [X/X]
             PlateText = DisplayName;
             C.StrLen(PlateText, XL, YL);
-            DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
+            if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
 
             PlateText = "HP [" $ P.Health $ "/" $ int(P.HealthMax) $ "]";
             C.StrLen(PlateText, XL, YL);
-            DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
+            if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
         }
     }
     }
