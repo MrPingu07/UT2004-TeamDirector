@@ -794,6 +794,8 @@ function UseAbility(DirectorReplicationInfo RI, int Slot)
 {
     local Pawn T;
     local byte Team;
+    local Pawn ActualTarget;
+    local Vehicle TargetVehicle;
 
     if (RI == None || RI.bDeleteMe || !RI.bDirectorActive ||
         RI.DirectorPC == None || RI.DirectorPC.bDeleteMe)
@@ -819,21 +821,32 @@ function UseAbility(DirectorReplicationInfo RI, int Slot)
     if (!CheckCooldown(RI, Slot))
         return;
 
+    // If target is a vehicle, get the driver
+    TargetVehicle = Vehicle(T);
+    if (TargetVehicle != None && TargetVehicle.Driver != None)
+    {
+        ActualTarget = TargetVehicle.Driver;
+    }
+    else
+    {
+        ActualTarget = T;
+    }
+
     switch (Slot)
     {
         case 1:
-            if (!GrantAmmo(T))
+            if (!GrantAmmo(ActualTarget))
             {
                 Notify(RI, "That fighter has no weapons to resupply.");
                 return;
             }
-            DeployFX(T.Location, Team, 0);
+            DeployFX(ActualTarget.Location, Team, 0);
             StartCooldown(RI, Slot);
             Notify(RI, "Ammunition requisition authorized.");
             break;
 
         case 2:
-            if (!DeploySentinel(T, Team, RI))
+            if (!DeploySentinel(ActualTarget, Team, RI))
             {
                 Notify(RI, "Not enough space.");
                 return;
@@ -843,31 +856,31 @@ function UseAbility(DirectorReplicationInfo RI, int Slot)
             break;
 
         case 3:
-            T.Health = Max(T.Health, 300);
-            DeployFX(T.Location, Team, 0);
+            ActualTarget.Health = Max(ActualTarget.Health, 300);
+            DeployFX(ActualTarget.Location, Team, 0);
             StartCooldown(RI, Slot);
             Notify(RI, "Painkiller nanites administered. Health set to 300.");
             break;
 
         case 4:
-            if (!T.AddShieldStrength(100))
+            if (!ActualTarget.AddShieldStrength(100))
             {
                 Notify(RI, "Blindage already at maximum.");
                 return;
             }
-            DeployFX(T.Location, Team, 0);
+            DeployFX(ActualTarget.Location, Team, 0);
             StartCooldown(RI, Slot);
             Notify(RI, "Blindage authorized: +100 shield.");
             break;
 
         case 5:
-            if (xPawn(T) == None)
+            if (xPawn(ActualTarget) == None)
             {
                 Notify(RI, "Stimuli Dose can only be applied to a fighter.");
                 return;
             }
-            RI.ApplyBerserk(T);
-            Spawn(class'XEffects.ComboActivation', T,, T.Location, T.Rotation);
+            RI.ApplyBerserk(ActualTarget);
+            Spawn(class'XEffects.ComboActivation', ActualTarget,, ActualTarget.Location, ActualTarget.Rotation);
             if (RI.DirectorPC != None)
                 RI.DirectorPC.ClientPlaySound(
                     Sound'GameSounds.Combo.ComboActivated', true, 1.0, SLOT_None);
