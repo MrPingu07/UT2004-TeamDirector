@@ -100,6 +100,10 @@ event NotifyLevelChange()
 function Tick(float DeltaTime)
 {
     local float Radius;
+    local float MaxZoom;
+    local float ZoomSpeed;
+    local Vehicle CheckV;
+    local bool bIsVehicle;
 
     if (RI == None || RI.bDeleteMe)
     {
@@ -136,11 +140,27 @@ function Tick(float DeltaTime)
     PC.TeamBeaconPlayerInfoMaxDist = 0.0;
 
     if (bZoomIn)
-        ZoomDistance -= 950.0 * DeltaTime;
+        ZoomDistance -= ZoomSpeed * DeltaTime;
     if (bZoomOut)
-        ZoomDistance += 950.0 * DeltaTime;
+        ZoomDistance += ZoomSpeed * DeltaTime;
 
-    ZoomDistance = FClamp(ZoomDistance, 120.0, 1500.0);
+    // Different zoom ranges and speeds for vehicles vs on-foot
+    // Both go 0-100% in 5 seconds
+    CheckV = Vehicle(RI.CurrentTarget);
+    bIsVehicle = (CheckV != None);
+
+    if (bIsVehicle)
+    {
+        MaxZoom = 15000.0;
+        ZoomSpeed = 2976.0;  // (15000 - 120) / 5
+    }
+    else
+    {
+        MaxZoom = 3000.0;
+        ZoomSpeed = 576.0;   // (3000 - 120) / 5
+    }
+
+    ZoomDistance = FClamp(ZoomDistance, 120.0, MaxZoom);
 
     // Use a fixed reference radius (40) so zoom distance always represents
     // world-space distance regardless of target size.
