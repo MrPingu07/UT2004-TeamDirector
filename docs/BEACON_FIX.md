@@ -42,6 +42,26 @@ defaultproperties
 - `DirectorHUD.DrawCustomBeacon()` - Added debug logging to verify suppression
 - `DirectorReplicationInfo.ClientActivateBooth()` - Enhanced logging to verify HUD swap
 
+## Caveats Fixed (Follow-up)
+
+### 1. Sentry Naming
+**Files**: `DirectorInteraction.uc`, `DirectorTurretBeaconInteraction.uc`
+- Changed "Sentry(n)" → "Sentry" (no number suffix)
+- Format: Two centred lines: "Sentry" / "HP [X/X]"
+- No shield line (sentinels are walk-through turrets)
+
+### 2. Vehicle Driver Names
+**File**: `DirectorInteraction.uc`
+When a player enters a vehicle, it now shows the **driver's player name** instead of "2k4xPawn" or vehicle class name.
+
+Display logic per pawn type:
+| Pawn Type | Lines | Content |
+|-----------|-------|---------|
+| Player (on foot) | 3 | Name / HP [X] / Shield [X] |
+| Vehicle with driver | 3 | DriverName / HP [X] / Shield [X] |
+| Sentry (empty) | 2 | Sentry / HP [X/X] |
+| Other vehicle (empty) | 2 | VehicleName / HP [X/X] |
+
 ## Verification
 
 Run with `-log` and enter Director mode. Look for:
@@ -59,3 +79,4 @@ Run with `-log` and enter Director mode. Look for:
 - Native "DirectorSentinel / Health [1000/1000] / Shield [0]" beacons are **completely eliminated**
 - Other vehicles (SPMA, Raptor, Goliath) still show native beacons for combatants (unchanged)
 - Player nameplates unchanged: "Name" / "HP [X]" / "Shield [X]"
+- Occupied vehicles show driver's name correctly

@@ -456,11 +456,17 @@ function PostRender(Canvas C)
         if (V != None)
         {
             DriverP = V.Driver;
-            bHasDriver = (DriverP != None && DriverP.PlayerReplicationInfo != None);
+            bHasDriver = (DriverP != None);
 
             if (bHasDriver)
             {
-                DisplayName = DriverP.PlayerReplicationInfo.PlayerName;
+                // Same fallback chain as on-foot players: PRI -> Controller's PRI -> Pawn.Name
+                if (DriverP.PlayerReplicationInfo != None)
+                    DisplayName = DriverP.PlayerReplicationInfo.PlayerName;
+                else if (DriverP.Controller != None && DriverP.Controller.PlayerReplicationInfo != None)
+                    DisplayName = DriverP.Controller.PlayerReplicationInfo.PlayerName;
+                else
+                    DisplayName = string(DriverP.Name);
                 NumLines = 3;  // DriverName / HP / Shield
             }
             else if (bIsSentry)
