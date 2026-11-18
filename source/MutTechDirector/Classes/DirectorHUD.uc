@@ -204,10 +204,10 @@ simulated function DrawSpectatingHud(Canvas C)
     local float RedW, BlueW, DashW, TScoreY, TTotalW, TStartX;
     local HUD MyHUD;
 
-    // Resolution-independent scaling
+    // Resolution-independent scaling (1024x768 as reference = scale 1.0)
     local float Scale;
     
-    Scale = C.ClipY / 480.0;
+    Scale = C.ClipY / 768.0;
     
     // First, draw the native chat feed at its native position (bottom of screen)
     DisplayLocalMessages(C);

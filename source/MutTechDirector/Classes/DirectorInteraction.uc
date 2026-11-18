@@ -375,8 +375,8 @@ function PostRender(Canvas C)
     C.FontScaleX = 1.0;
     C.FontScaleY = 1.0;
 
-    // Resolution-independent scale factor (base 480p height)
-    Scale = C.ClipY / 480.0;
+    // Resolution-independent scale factor (1024x768 as reference = scale 1.0)
+    Scale = C.ClipY / 768.0;
 
     C.StrLen("Mg", XL, YL);
     if (YL < 10.0 * Scale)
