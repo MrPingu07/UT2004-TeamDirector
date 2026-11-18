@@ -92,6 +92,8 @@ simulated function DrawSpectatingHud(Canvas C)
 {
     local float BannerHeight;
     local float BannerY;
+    local float BannerX;
+    local float BannerWidth;
     local float StripeWidth;
     local float LogoSize;
     local float LogoX;
@@ -112,6 +114,10 @@ simulated function DrawSpectatingHud(Canvas C)
     local PlayerReplicationInfo TargetPRI;
     local float TextY;
     local float LoopX;
+    local float SavedOrgX;
+    local float SavedOrgY;
+    local float SavedClipX;
+    local float SavedClipY;
     
     // First, draw the native chat feed at its native position (bottom of screen)
     DisplayLocalMessages(C);
@@ -147,6 +153,8 @@ simulated function DrawSpectatingHud(Canvas C)
     // Banner dimensions - keep at bottom
     BannerHeight = 80.0;
     BannerY = C.ClipY - BannerHeight;
+    BannerX = 0.0;
+    BannerWidth = C.ClipX;
     
     // Dark transparent band (80% opacity black)
     C.Style = ERenderStyle.STY_Alpha;
@@ -198,23 +206,31 @@ simulated function DrawSpectatingHud(Canvas C)
     TextX = C.ClipX - (Level.TimeSeconds * 80.0 % (TextWidth + C.ClipX));
     TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
     
-    // Draw scrolling text - only when FULLY within screen bounds (prevents engine wrapping)
+    // Draw scrolling text using native canvas clipping for smooth ticker effect
+    // Save original canvas state
+    SavedOrgX = C.OrgX;
+    SavedOrgY = C.OrgY;
+    SavedClipX = C.ClipX;
+    SavedClipY = C.ClipY;
+    
+    // Set clipping region to banner area
+    C.SetOrigin(BannerX, BannerY);
+    C.SetClip(BannerWidth, BannerHeight);
+    
     C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
     
-    // Primary copy: draw only when FULLY on-screen (both edges)
-    if (TextX >= 0 && TextX + TextWidth <= C.ClipX)
-    {
-        C.SetPos(TextX, TextYPos);
-        C.DrawText(ScrollText, false);
-    }
+    // Primary copy: scrolls within clipped region
+    C.SetPos(TextX - BannerX, TextYPos - BannerY);
+    C.DrawText(ScrollText, false);
     
-    // Loop copy: immediately after primary (no gap) for seamless scrolling
+    // Loop copy: immediately after primary for seamless scrolling
     LoopX = TextX + TextWidth;
-    if (LoopX >= 0 && LoopX + TextWidth <= C.ClipX)
-    {
-        C.SetPos(LoopX, TextYPos);
-        C.DrawText(ScrollText, false);
-    }
+    C.SetPos(LoopX - BannerX, TextYPos - BannerY);
+    C.DrawText(ScrollText, false);
+    
+    // Restore canvas state
+    C.SetOrigin(SavedOrgX, SavedOrgY);
+    C.SetClip(SavedClipX, SavedClipY);
 }
 
 defaultproperties
