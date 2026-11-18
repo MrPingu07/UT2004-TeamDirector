@@ -320,6 +320,12 @@ function PostRender(Canvas C)
     local string DisplayName;
     local string PlateText;
 
+    // Two-pass rendering: first pass collects data, second pass draws
+    // highlighted on top of non-highlighted
+    local array<Pawn> HighlightedPawns;
+    local array<Pawn> NormalPawns;
+    local int Pass;
+
     if (RI == None || RI.bDeleteMe)
     {
         Cleanup();
@@ -429,6 +435,10 @@ function PostRender(Canvas C)
     C.GetCameraLocation(CamLoc, CamRot);
     RI.GetFriendlyPawns(Pawns);
 
+    // First pass: collect valid pawns into highlighted/normal arrays
+    HighlightedPawns.Length = 0;
+    NormalPawns.Length = 0;
+
     for (i = 0; i < Pawns.Length; i++)
     {
         P = Pawns[i];
@@ -537,38 +547,125 @@ function PostRender(Canvas C)
             }
         }
 
-        // Draw based on type - with screen bounds check to prevent wrapping
-        if (NumLines == 3)
+        // Store pawn data for two-pass rendering
+        if (bIsHighlighted)
+            HighlightedPawns[HighlightedPawns.Length] = P;
+        else
+            NormalPawns[NormalPawns.Length] = P;
+    }
+
+    // Second pass: draw normal first, then highlighted on top
+    for (Pass = 0; Pass < 2; Pass++)
+    {
+        if (Pass == 0)
         {
-            // 3 lines: Name / HP / Shield
-            PlateText = DisplayName;
-            C.StrLen(PlateText, XL, YL);
-            if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
-                DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 3.0 * LineH, PlateText, TeamColor);
-
-            PlateText = "HP [" $ P.Health $ "]";
-            C.StrLen(PlateText, XL, YL);
-            if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
-                DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
-
-            PlateText = "Shield [" $ int(P.ShieldStrength) $ "]";
-            C.StrLen(PlateText, XL, YL);
-            if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
-                DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
+            for (i = 0; i < NormalPawns.Length; i++)
+            {
+                P = NormalPawns[i];
+            }
         }
         else
         {
-            // 2 lines: Sentry/VehicleName / HP [X/X]
-            PlateText = DisplayName;
-            C.StrLen(PlateText, XL, YL);
-            if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
-                DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
+            for (i = 0; i < HighlightedPawns.Length; i++)
+            {
+                P = HighlightedPawns[i];
+            if (P == None)
+                continue;
 
-            PlateText = "HP [" $ P.Health $ "/" $ int(P.HealthMax) $ "]";
-            C.StrLen(PlateText, XL, YL);
-            if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
-                DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
+            Head = P.Location + vect(0,0,60);
+
+            // Skip anything behind the camera.
+            if ((Head - CamLoc) Dot vector(CamRot) <= 0.0)
+                continue;
+
+            Screen = C.WorldToScreen(Head);
+            if (Screen.X < 0.0 || Screen.X > C.ClipX ||
+                Screen.Y < 0.0 || Screen.Y > C.ClipY)
+                continue;
+
+            // Determine NumLines for this pawn
+            V = Vehicle(P);
+            bIsSentry = (DirectorSentinel(P) != None);
+
+            if (V != None)
+            {
+                DriverP = V.Driver;
+                bHasDriver = (DriverP != None);
+                if (bHasDriver)
+                    NumLines = 3;
+                else if (bIsSentry)
+                    NumLines = 2;
+                else
+                    continue; // empty non-sentry - skip
+            }
+            else
+            {
+                NumLines = 3; // Player on foot
+            }
+
+            // Check highlight again (CurrentTarget might have changed since first pass)
+            CheckV = Vehicle(P);
+            if (CheckV != None && CheckV.Driver != None)
+            {
+                bIsHighlighted = (CheckV.Driver == RI.CurrentTarget);
+            }
+            else
+            {
+                bIsHighlighted = (P == RI.CurrentTarget);
+            }
+
+            // Team colours
+            if (P.GetTeamNum() == 0)
+            {
+                TeamColor.R = 255; TeamColor.G = 0;   TeamColor.B = 0;   TeamColor.A = 255;
+                if (bIsHighlighted)
+                {
+                    TeamColor.R = 255; TeamColor.G = 153; TeamColor.B = 51;
+                }
+            }
+            else
+            {
+                TeamColor.R = 51;  TeamColor.G = 102; TeamColor.B = 255; TeamColor.A = 255;
+                if (bIsHighlighted)
+                {
+                    TeamColor.R = 51;  TeamColor.G = 204; TeamColor.B = 255;
+                }
+            }
+
+            // Draw based on type - with screen bounds check to prevent wrapping
+            if (NumLines == 3)
+            {
+                // 3 lines: Name / HP / Shield
+                PlateText = DisplayName;
+                C.StrLen(PlateText, XL, YL);
+                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                    DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 3.0 * LineH, PlateText, TeamColor);
+
+                PlateText = "HP [" $ P.Health $ "]";
+                C.StrLen(PlateText, XL, YL);
+                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                    DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
+
+                PlateText = "Shield [" $ int(P.ShieldStrength) $ "]";
+                C.StrLen(PlateText, XL, YL);
+                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                    DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
+            }
+            else
+            {
+                // 2 lines: Sentry/VehicleName / HP [X/X]
+                PlateText = DisplayName;
+                C.StrLen(PlateText, XL, YL);
+                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                    DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
+
+                PlateText = "HP [" $ P.Health $ "/" $ int(P.HealthMax) $ "]";
+                C.StrLen(PlateText, XL, YL);
+                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                    DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
+            }
         }
+    }
     }
     }
 
