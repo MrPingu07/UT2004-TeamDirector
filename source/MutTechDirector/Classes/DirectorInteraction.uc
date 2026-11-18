@@ -447,7 +447,7 @@ function PostRender(Canvas C)
                 Y += LineH;
                 DrawLine(C, X, Y, "[2] Machinery", White);
                 Y += LineH;
-                DrawLine(C, X, Y, "[Crouch] Back", Dim);
+                DrawLine(C, X, Y, "[Crouch] Back | [Q/E] Pages", Dim);
                 Y += LineH;
                 break;
 

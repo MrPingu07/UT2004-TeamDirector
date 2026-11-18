@@ -439,7 +439,8 @@ move.
    - header `[TECHNICAL DIRECTOR LOGISTICS]`;
    - Nanite row with `[HOLD]` / `[BEAM]`;
    - full mode: slots 1–9 with names and status;
-   - page picker: `[1] Personal`, `[2] Machinery`, `[Crouch] Back`;
+   - page picker: `[1] Personal`, `[2] Machinery`,
+     `[Crouch] Back | [Q/E] Pages`;
    - Personal page: original 1, 3, 4, 5, 9 as visible 1–5;
    - Machinery page: original 2, 6, 7, 8 as visible 1–4.
    Status is `[READY]` when cooldown ≤ 0.01, otherwise `[Ns]`. Color is green
