@@ -377,50 +377,58 @@ function PostRender(Canvas C)
         YL = 12.0;
     LineH = YL + 2.0;
 
-    // -- top-left: transmat logistics hotbar -------------------------------
-    X = 24.0;
-    Y = 24.0;
-
-    DrawLine(C, X, Y, "[TECHNICAL DIRECTOR LOGISTICS]", White);
-    Y += LineH;
-
-    NameText = "[Jump] Nanite Med-Surge";
-    Status = "[HOLD]";
-    StatusColor = Dim;
-    if (RI.bHealing)
+    // Hide hotbar and cheatsheet while F1 scoreboard is open
+    if (PC != None && PC.myHUD != None && PC.myHUD.bShowScoreBoard)
     {
-        Status = "[BEAM]";
-        StatusColor = Green;
+        // Skip drawing hotbar and cheatsheet
     }
-    DrawLine(C, X, Y, NameText, White);
-    C.StrLen(NameText, XL, YL);
-    DrawLine(C, X + XL + 10.0, Y, Status, StatusColor);
-    Y += LineH;
-
-    for (i = 1; i <= 9; i++)
+    else
     {
-        NameText = "[" $ i $ "] " $ SlotName(i);
-        Status = SlotStatus(i);
-        StatusColor = SlotColor(i);
+        // -- top-left: transmat logistics hotbar -------------------------------
+        X = 24.0;
+        Y = 24.0;
 
+        DrawLine(C, X, Y, "[TECHNICAL DIRECTOR LOGISTICS]", White);
+        Y += LineH;
+
+        NameText = "[Jump] Nanite Med-Surge";
+        Status = "[HOLD]";
+        StatusColor = Dim;
+        if (RI.bHealing)
+        {
+            Status = "[BEAM]";
+            StatusColor = Green;
+        }
         DrawLine(C, X, Y, NameText, White);
         C.StrLen(NameText, XL, YL);
         DrawLine(C, X + XL + 10.0, Y, Status, StatusColor);
         Y += LineH;
+
+        for (i = 1; i <= 9; i++)
+        {
+            NameText = "[" $ i $ "] " $ SlotName(i);
+            Status = SlotStatus(i);
+            StatusColor = SlotColor(i);
+
+            DrawLine(C, X, Y, NameText, White);
+            C.StrLen(NameText, XL, YL);
+            DrawLine(C, X + XL + 10.0, Y, Status, StatusColor);
+            Y += LineH;
+        }
+
+        // -- top-right: booth controls cheatsheet ------------------------------
+        L1 = "[Wheel] Cycle Fighter Feed";
+        L2 = "[Hold Fire/AltFire] Zoom Cam";
+        L3 = "[Hold Jump] Heal";
+        L4 = "[1-9] Transmat Drop";
+        L5 = "[B] Toggle Booth";
+
+        DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L1), 24.0, L1, Dim);
+        DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L2), 24.0 + LineH, L2, Dim);
+        DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L3), 24.0 + (2.0 * LineH), L3, Dim);
+        DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L4), 24.0 + (3.0 * LineH), L4, Dim);
+        DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L5), 24.0 + (4.0 * LineH), L5, Dim);
     }
-
-    // -- top-right: booth controls cheatsheet ------------------------------
-    L1 = "[Wheel] Cycle Fighter Feed";
-    L2 = "[Hold Fire/AltFire] Zoom Cam";
-    L3 = "[Hold Jump] Heal";
-    L4 = "[1-9] Transmat Drop";
-    L5 = "[B] Toggle Booth";
-
-    DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L1), 24.0, L1, Dim);
-    DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L2), 24.0 + LineH, L2, Dim);
-    DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L3), 24.0 + (2.0 * LineH), L3, Dim);
-    DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L4), 24.0 + (3.0 * LineH), L4, Dim);
-    DrawLine(C, C.ClipX - 24.0 - TextWidth(C, L5), 24.0 + (4.0 * LineH), L5, Dim);
 
     // -- lower-right: live TeamMates roster counter ------------------------
     // Keeps the old cheatsheet uplift so the block clears the chat area and
