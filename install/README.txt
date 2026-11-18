@@ -103,9 +103,9 @@ indexed form is only for static arrays and is silently ignored. A missing or
 unreadable ini falls back to the two compiled defaults above.
 
 Messages may contain live-match tokens such as $MAPNAME, $TOPFRAGGER,
-$TOPFRAGGERSCORE, $PLAYERCOUNT, $TOPTEAMNAME and the rest of the roster. The
-full list, fallbacks and match-state rules are documented in
-docs/BROADCASTING.md.
+$TOPFRAGGERSCORE, $PLAYERCOUNT, $TOPTEAMNAME and the rest of the roster, plus
+random numbers $RANDOM1_25, $RANDOM25_50 and $RANDOM75_100. The full list,
+fallbacks and match-state rules are documented in docs/BROADCASTING.md.
 
 Message text is uppercased automatically, so it can be written in normal
 sentence case. Token values keep their original casing (player names, server

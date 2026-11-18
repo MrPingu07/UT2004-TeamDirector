@@ -98,8 +98,24 @@ static function string ExpandTokens(string Msg, PlayerController PC)
     ReplaceText(Msg, "$MATCHSTATUS", GetMatchStatus(GRI));
     ReplaceText(Msg, "$TIMEELAPSED", FormatClock(GetElapsedTime(GRI)));
     ReplaceText(Msg, "$TIMEREMAINING", GetTimeRemaining(GRI));
+    ReplaceText(Msg, "$RANDOM1_25", string(RollRange(1, 25)));
+    ReplaceText(Msg, "$RANDOM25_50", string(RollRange(25, 50)));
+    ReplaceText(Msg, "$RANDOM75_100", string(RollRange(75, 100)));
 
     return Msg;
+}
+
+/**
+ * Inclusive random integer in [Min, Max].  Resolved on the client like every
+ * other token, so each viewer may roll a different number for the same
+ * message.  The result is part of the per-cycle snapshot.
+ */
+static function int RollRange(int Min, int Max)
+{
+    if (Max < Min)
+        return Min;
+
+    return Min + Rand(Max - Min + 1);
 }
 
 // ---------------------------------------------------------------------------
