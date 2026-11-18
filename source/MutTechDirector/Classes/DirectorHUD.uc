@@ -80,6 +80,39 @@ simulated function DrawMessage(Canvas C, int i, float PosX, float PosY, out floa
 }
 
 /**
+ * Draw a scrolling text copy with proper clipping at left edge.
+ * Uses prefix width measurement so text exits character-by-character.
+ */
+simulated function DrawScrollCopy(Canvas C, string S, float X, float Y)
+{
+    local int Start;
+    local float PW;
+    local float PH;
+
+    if (X >= C.ClipX)
+        return;
+
+    Start = 0;
+    if (X < 0)
+    {
+        // Skip characters until the left edge of the first one is on screen
+        while (Start < Len(S))
+        {
+            C.StrLen(Left(S, Start), PW, PH);
+            if (X + PW >= 0)
+                break;
+            Start++;
+        }
+        if (Start >= Len(S))
+            return;
+    }
+
+    C.StrLen(Left(S, Start), PW, PH);
+    C.SetPos(X + PW, Y);
+    C.DrawText(Mid(S, Start), false);
+}
+
+/**
  * Custom spectator banner replacing the native "Now Viewing..." banner.
  * Draws a custom banner at the bottom with:
  * - Unreal "U" logo at left margin
@@ -113,7 +146,9 @@ simulated function DrawSpectatingHud(Canvas C)
     local Pawn TargetPawn;
     local PlayerReplicationInfo TargetPRI;
     local float TextY;
-    
+    local float Gap;
+    local float Period;
+    local int i;
     
     // First, draw the native chat feed at its native position (bottom of screen)
     DisplayLocalMessages(C);
@@ -250,18 +285,23 @@ simulated function DrawSpectatingHud(Canvas C)
     ScrollSpeed = 80.0; // pixels per second
     ScrollOffset = (Level.TimeSeconds * 80.0) % (TextWidth + C.ClipX);
     
-    TextX = C.ClipX - (Level.TimeSeconds * 80.0 % (TextWidth + C.ClipX));
+    // Gap = 160 px = 2s pause at 80 px/s
+    Gap = 160.0;
+    Period = TextWidth + Gap;
+    TextX = -(Level.TimeSeconds * 80.0 % Period);
     TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
-    
-    // Only draw when text is on-screen from left edge (TextX >= 0)
-    // This keeps character-based panning smooth while avoiding left-edge artifacts
+
+    // Draw scrolling text with single copy + pause gap
+    // Only draw when text is fully or partially on-screen from left edge (TextX >= 0)
     if (TextX >= 0)
+    {
         C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
         C.Font = C.MedFont;
         C.SetPos(TextX, TextYPos);
         C.DrawText(ScrollText, false);
     }
 
+}
 defaultproperties
 {
     bShowScores=False
