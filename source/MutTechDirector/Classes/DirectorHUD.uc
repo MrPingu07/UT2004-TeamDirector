@@ -81,6 +81,133 @@ simulated function DrawMessage(Canvas C, int i, float PosX, float PosY, out floa
     // Intentionally empty.
 }
 
+/**
+ * Custom spectator banner replacing the native "Now Viewing..." banner.
+ * Draws a custom banner at the bottom with:
+ * - UT2004 logo (front layer)
+ * - Dark transparent horizontal band spanning screen width
+ * - Team-colored stripes at top and bottom edges
+ * - Custom scrolling text area in the middle
+ */
+simulated function DrawSpectatingHud(Canvas C)
+{
+    local float BannerHeight;
+    local float BannerY;
+    local float StripeWidth;
+    local float LogoSize;
+    local float LogoX;
+    local float LogoY;
+    local color TeamColor;
+    local color BandColor;
+    local color StripeColor;
+    local string ScrollText;
+    local float TextX;
+    local float TextYPos;
+    local float TextWidth;
+    local float TextHeight;
+    local float ScrollSpeed;
+    local float ScrollOffset;
+    local int TeamNum;
+    local string TeamName;
+    local Pawn TargetPawn;
+    local PlayerReplicationInfo TargetPRI;
+    local float TextY;
+    
+    // Don't draw if no valid target or not spectating a teammate
+    if (PlayerOwner == None || PlayerOwner.ViewTarget == None)
+        return;
+    
+    TargetPawn = Pawn(PlayerOwner.ViewTarget);
+    if (TargetPawn == None || TargetPawn.Health <= 0)
+        return;
+    
+    TargetPRI = TargetPawn.PlayerReplicationInfo;
+    if (TargetPRI == None)
+        return;
+    
+    TeamNum = TargetPawn.GetTeamNum();
+    
+    // Team color for stripes and text
+    if (TeamNum == 0)
+    {
+        // Red team
+        StripeColor.R = 255; StripeColor.G = 0;   StripeColor.B = 0;   StripeColor.A = 255;
+        TeamColor.R = 255; TeamColor.G = 100; TeamColor.B = 100; TeamColor.A = 255;
+    }
+    else
+    {
+        // Blue team
+        StripeColor.R = 51;  StripeColor.G = 102; StripeColor.B = 255; StripeColor.A = 255;
+        TeamColor.R = 100; TeamColor.G = 150; TeamColor.B = 255; TeamColor.A = 255;
+    }
+    
+    // Banner dimensions
+    BannerHeight = 80.0;
+    BannerY = C.ClipY - BannerHeight;
+    
+    // Dark transparent band (80% opacity black)
+    C.Style = ERenderStyle.STY_Alpha;
+    C.SetDrawColor(0, 0, 0, 204);
+    C.SetPos(0, BannerY);
+    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, BannerHeight);
+    C.Style = ERenderStyle.STY_Normal;
+    
+    // Team-colored stripes at top and bottom of banner (3px each)
+    StripeWidth = 3.0;
+    C.SetDrawColor(StripeColor.R, StripeColor.G, StripeColor.B, 255);
+    C.SetPos(0, BannerY);
+    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, 3.0);
+    C.SetPos(0, BannerY + BannerHeight - 3.0);
+    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, 3.0);
+    
+    // UT2004 logo (centered, front layer)
+    LogoSize = 64.0;
+    LogoX = (C.ClipX - 64.0) * 0.5;
+    LogoY = BannerY + (80.0 - 64.0) * 0.5;
+    
+    // Draw logo
+    C.Style = ERenderStyle.STY_Alpha;
+    C.SetDrawColor(255, 255, 255, 255);
+    C.SetPos(LogoX, LogoY);
+    C.DrawTile(
+        Texture'InterfaceContent.Logos.Logo',
+        64.0, 64.0,
+        0, 0,
+        256, 256
+    );
+    C.Style = ERenderStyle.STY_Normal;
+    
+    // Custom scrolling text area
+    if (TeamNum == 0)
+        TeamName = "RED";
+    else
+        TeamName = "BLUE";
+    ScrollText = "TECHNICAL DIRECTOR MODE  |  SPECTATING: " $ TargetPRI.PlayerName $ "  |  TEAM: " $ TeamName $ "  |  PRESS [B] TO EXIT BOOTH";
+    
+    // Scrolling text animation
+    C.Font = C.SmallFont;
+    C.StrLen(ScrollText, TextWidth, TextHeight);
+    
+    TextX = C.ClipX - (Level.TimeSeconds * 80.0 % (TextWidth + C.ClipX));
+    TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
+    
+    // Draw scrolling text (clipped to banner area)
+    C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
+    
+    if (TextX + TextWidth > 0 && TextX < C.ClipX)
+    {
+        C.SetPos(TextX, TextYPos);
+        C.DrawText(ScrollText, false);
+    }
+    
+    // Draw second copy for seamless looping
+    if (TextX + TextWidth + C.ClipX > 0 && TextX + TextWidth < C.ClipX * 2)
+    {
+        C.SetPos(TextX + TextWidth + 50, TextYPos);
+        C.DrawText(ScrollText, false);
+    }
+}
+
 defaultproperties
 {
     bShowScores=False
