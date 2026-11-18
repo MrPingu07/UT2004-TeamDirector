@@ -227,10 +227,10 @@ event PostRender(Canvas C)
         }
 
         // Format: two centred lines
-        //   Sentinel(n)
+        //   Sentry
         //   HP [X/X]
         // No shield line: sentinels are walk-through turrets, not fighters.
-        BeaconText = "Sentinel(" $ (i + 1) $ ")";
+        BeaconText = "Sentry";
         C.StrLen(BeaconText, XL, YL);
         C.DrawColor = TeamColor;
         C.SetPos(Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH);
