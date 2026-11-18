@@ -113,14 +113,10 @@ simulated function DrawSpectatingHud(Canvas C)
     local Pawn TargetPawn;
     local PlayerReplicationInfo TargetPRI;
     local float TextY;
-    local float CharWidth;
-    local int VisibleStart;
-    local int VisibleEnd;
-    local int VisibleChars;
-    local float VisibleWidth;
-    local string VisibleText;
-    local float DrawX;
-    local float LoopX;
+    
+    local float PauseTime;
+    local float PauseDistance;
+    local float TotalCycleDistance;
     
     // First, draw the native chat feed at its native position (bottom of screen)
     DisplayLocalMessages(C);
@@ -253,105 +249,41 @@ simulated function DrawSpectatingHud(Canvas C)
     C.Font = C.MedFont;  // 3x larger than SmallFont
     C.StrLen(ScrollText, TextWidth, TextHeight);
     
-    // Scrolling text animation
     ScrollSpeed = 80.0; // pixels per second
-    ScrollOffset = (Level.TimeSeconds * 80.0) % (TextWidth + C.ClipX);
     
-    TextX = C.ClipX - (Level.TimeSeconds * 80.0 % (TextWidth + C.ClipX));
-    TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
+    // Total cycle: travel distance + pause gap
+    // Travel: text moves from right edge (ClipX) to fully off-screen left (-TextWidth)
+    // Pause: wait 2 seconds at fully off-screen before next message
+    PauseTime = 2.0; // seconds to wait after text fully exits
+    PauseDistance = ScrollSpeed * PauseTime; // pixels of pause "distance"
+    TotalCycleDistance = TextWidth + C.ClipX + PauseDistance;
     
-    // Draw scrolling text with substring-based clipping
-    // Estimate average character width for clipping
-    CharWidth = TextWidth / Len(ScrollText);
+    ScrollOffset = (Level.TimeSeconds * ScrollSpeed) % TotalCycleDistance;
     
-    C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
-    C.Font = C.MedFont;
-    
-    // Calculate visible substring range based on TextX position
-    // TextX is the left edge of the text in screen coordinates
-    // Visible range: X = 0 to C.ClipX
-    
-    // Calculate which characters are visible
-    if (TextX < 0)
+    // Calculate TextX with pause gap
+    // Travel phase: TextX goes from ClipX down to -TextWidth
+    // Pause phase: TextX stays at -TextWidth for PauseDistance
+    if (ScrollOffset < TextWidth + C.ClipX)
     {
-        // Text starts off-screen left, skip first N characters
-        VisibleStart = int((-TextX) / CharWidth);
-        if (VisibleStart >= Len(ScrollText))
-            VisibleStart = Len(ScrollText) - 1;
+        // Travel phase: text moves from right to fully off-screen left
+        TextX = C.ClipX - ScrollOffset;
     }
     else
     {
-        VisibleStart = 0;
+        // Pause phase: text fully off-screen, wait before next cycle
+        TextX = -TextWidth;
     }
     
-    // Calculate how many characters fit on screen
-    VisibleWidth = C.ClipX - TextX;
-    if (VisibleWidth > TextWidth)
-        VisibleWidth = TextWidth;
+    TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
     
-    VisibleChars = int(VisibleWidth / CharWidth);
-    if (VisibleChars > Len(ScrollText) - VisibleStart)
-        VisibleChars = Len(ScrollText) - VisibleStart;
-    
-    VisibleEnd = VisibleStart + VisibleChars;
-    if (VisibleEnd > Len(ScrollText))
-        VisibleEnd = Len(ScrollText);
-    
-    VisibleText = Mid(ScrollText, VisibleStart, VisibleEnd - VisibleStart);
-    
-    // Draw visible substring at clamped position
-    DrawX = TextX;
-    if (DrawX < 0)
-        DrawX = 0;
-    
-    // Only draw if there's visible text
-    if (VisibleEnd > VisibleStart)
+    // Only draw when text is fully on-screen from left edge (TextX >= 0)
+    // This prevents character-jumping and stuck-last-character artifacts
+    if (TextX >= 0)
     {
         C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
         C.Font = C.MedFont;
-        C.SetPos(DrawX, TextYPos);
-        C.DrawText(VisibleText, false);
-    }
-    
-    // Loop copy for seamless scrolling
-    LoopX = TextX + TextWidth;
-    if (LoopX < C.ClipX && LoopX + TextWidth > 0)
-    {
-        // Calculate visible portion of loop copy
-        if (LoopX < 0)
-        {
-            VisibleStart = int((-LoopX) / CharWidth);
-            if (VisibleStart >= Len(ScrollText))
-                VisibleStart = Len(ScrollText) - 1;
-        }
-        else
-        {
-            VisibleStart = 0;
-        }
-        
-        VisibleWidth = C.ClipX - LoopX;
-        if (VisibleWidth > TextWidth)
-            VisibleWidth = TextWidth;
-        
-        VisibleChars = int(VisibleWidth / CharWidth);
-        if (VisibleChars > Len(ScrollText) - VisibleStart)
-            VisibleChars = Len(ScrollText) - VisibleStart;
-        
-        VisibleEnd = VisibleStart + VisibleChars;
-        if (VisibleEnd > Len(ScrollText))
-            VisibleEnd = Len(ScrollText);
-        
-        VisibleText = Mid(ScrollText, VisibleStart, VisibleEnd - VisibleStart);
-        
-        DrawX = LoopX;
-        if (DrawX < 0)
-            DrawX = 0;
-        
-        if (VisibleEnd > VisibleStart)
-        {
-            C.SetPos(DrawX, TextYPos);
-            C.DrawText(VisibleText, false);
-        }
+        C.SetPos(TextX, TextYPos);
+        C.DrawText(ScrollText, false);
     }
 }
 
