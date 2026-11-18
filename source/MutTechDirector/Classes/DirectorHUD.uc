@@ -111,6 +111,7 @@ simulated function DrawSpectatingHud(Canvas C)
     local Pawn TargetPawn;
     local PlayerReplicationInfo TargetPRI;
     local float TextY;
+    local float LoopX;
     
     // First, draw the native chat feed at its native position (bottom of screen)
     DisplayLocalMessages(C);
@@ -197,21 +198,21 @@ simulated function DrawSpectatingHud(Canvas C)
     TextX = C.ClipX - (Level.TimeSeconds * 80.0 % (TextWidth + C.ClipX));
     TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
     
-    // Draw scrolling text (clipped to banner area)
-    // Only draw when text is fully within screen bounds to prevent wrapping
+    // Draw scrolling text - draw whenever ANY part is visible (native DrawText clips at edges)
     C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
     
-    // Only draw when text is fully within screen bounds (prevents wrapping)
-    if (TextX >= 0 && TextX + TextWidth <= C.ClipX)
+    // Primary copy: draw whenever ANY part is on screen
+    if (TextX + TextWidth > 0 && TextX < C.ClipX)
     {
         C.SetPos(TextX, TextYPos);
         C.DrawText(ScrollText, false);
     }
     
-    // Draw second copy for seamless looping - only when fully in bounds
-    if (TextX + TextWidth + 50 >= 0 && TextX + TextWidth + 50 + TextWidth <= C.ClipX)
+    // Loop copy: immediately after primary (no gap) for seamless scrolling
+    LoopX = TextX + TextWidth;
+    if (LoopX + TextWidth > 0 && LoopX < C.ClipX)
     {
-        C.SetPos(TextX + TextWidth + 50, TextYPos);
+        C.SetPos(LoopX, TextYPos);
         C.DrawText(ScrollText, false);
     }
 }
