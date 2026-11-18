@@ -126,19 +126,22 @@ simulated function bool GetCursorVisible(float PhaseTime, int Phase)
 }
 
 /**
- * Picks a message from the config-backed shuffle bag (DirectorFeed).
- * No message repeats until all have been shown. Skips empty or too-wide messages.
+ * Picks a message from the config-backed shuffle bag (DirectorFeed) and
+ * expands its live-match tokens.
+ *
+ * No message repeats until all have been shown. Empty entries are skipped.
+ * Width is deliberately not filtered: token values vary in length, and the
+ * game already validates the player/server names that feed them. The banner
+ * is centred and clipped by the canvas instead.
  */
-simulated function string PickMessage(Canvas C)
+simulated function string PickMessage()
 {
     local int n, i, j, tmp, Tries;
     local string Msg;
-    local float W, H;
 
-    C.Font = C.MedFont;
     n = class'DirectorFeed'.default.Messages.Length;
     if (n == 0)
-        return "TECHNICAL DIRECTOR MODE";
+        return class'DirectorFeed'.static.ExpandTokens("TECHNICAL DIRECTOR MODE", PlayerOwner);
 
     for (Tries = 0; Tries < n; Tries++)
     {
@@ -155,14 +158,15 @@ simulated function string PickMessage(Canvas C)
                 FeedBag[j] = tmp;
             }
         }
+
         i = FeedBag[FeedBag.Length - 1];
         FeedBag.Length = FeedBag.Length - 1;
         Msg = class'DirectorFeed'.default.Messages[i];
-        C.StrLen(Msg, W, H);
-        if (Msg != "" && W <= C.ClipX * 0.9)
-            return Msg;
+        if (Msg != "")
+            return class'DirectorFeed'.static.ExpandTokens(Msg, PlayerOwner);
     }
-    return "TECHNICAL DIRECTOR MODE";
+
+    return class'DirectorFeed'.static.ExpandTokens("TECHNICAL DIRECTOR MODE", PlayerOwner);
 }
 
 /**
@@ -374,7 +378,7 @@ simulated function DrawSpectatingHud(Canvas C)
         || Level.TimeSeconds - LastDrawTime > 0.5)
     {
         CycleStart = Level.TimeSeconds;
-        CurrentMessage = PickMessage(C);
+        CurrentMessage = PickMessage();
     }
     LastDrawTime = Level.TimeSeconds;
     CycleElapsed = Level.TimeSeconds - CycleStart;
