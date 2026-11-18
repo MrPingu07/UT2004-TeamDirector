@@ -198,11 +198,11 @@ simulated function DrawSpectatingHud(Canvas C)
     TextX = C.ClipX - (Level.TimeSeconds * 80.0 % (TextWidth + C.ClipX));
     TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
     
-    // Draw scrolling text - draw whenever ANY part is visible (native DrawText clips at edges)
+    // Draw scrolling text - only when FULLY within screen bounds (prevents engine wrapping)
     C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
     
-    // Primary copy: draw whenever ANY part is on screen
-    if (TextX + TextWidth > 0 && TextX < C.ClipX)
+    // Primary copy: draw only when FULLY on-screen (both edges)
+    if (TextX >= 0 && TextX + TextWidth <= C.ClipX)
     {
         C.SetPos(TextX, TextYPos);
         C.DrawText(ScrollText, false);
@@ -210,7 +210,7 @@ simulated function DrawSpectatingHud(Canvas C)
     
     // Loop copy: immediately after primary (no gap) for seamless scrolling
     LoopX = TextX + TextWidth;
-    if (LoopX + TextWidth > 0 && LoopX < C.ClipX)
+    if (LoopX >= 0 && LoopX + TextWidth <= C.ClipX)
     {
         C.SetPos(LoopX, TextYPos);
         C.DrawText(ScrollText, false);
