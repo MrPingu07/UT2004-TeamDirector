@@ -553,13 +553,14 @@ function PostRender(Canvas C)
             }
 
             // Special case: highlighted player inside a vehicle -> draw at fixed screen position
-            // Center X, one LineH margin from top
+            // Crosshair is at absolute middle (C.ClipX*0.5, C.ClipY*0.5)
+            // Draw beacon with 1 LineH margin above crosshair
             bFixedPosition = False;
             if (bIsHighlighted && V != None && bHasDriver)
             {
                 bFixedPosition = True;
                 FixedX = C.ClipX * 0.5;
-                FixedY = LineH; // one line margin from top
+                FixedY = C.ClipY * 0.5 - LineH; // one line margin above crosshair
             }
 
             // Draw based on type - with screen bounds check to prevent wrapping
