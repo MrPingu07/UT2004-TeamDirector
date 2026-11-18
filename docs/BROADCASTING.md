@@ -206,7 +206,7 @@ server, map and team names. A player named `xX_Sn1p3r_Xx` is shown as
 | Token | Prints | Source and fallback |
 | --- | --- | --- |
 | `$GAMETYPE` | Active game-mode name | `GRI.GameName`, then `Level.Game.GameName`; fallback `Tournament` |
-| `$GOALSCORE` | Score needed to win | `GRI.GoalScore` when greater than zero, otherwise `No Limit` |
+| `$GOALSCORE` | Score needed to win | `GRI.GoalScore` when greater than zero, otherwise `NO LIMIT` |
 
 `GRI.GameName` is replicated from `GameInfo.GameName`; the `Level.Game`
 lookup is a standalone/secondary fallback. `Level.Game.GameName` can differ
@@ -254,9 +254,9 @@ Team-index notes:
 
 | Token | Prints | Source and fallback |
 | --- | --- | --- |
-| `$MATCHSTATUS` | Match phase | See §6; fallback `Unknown` |
+| `$MATCHSTATUS` | Match phase | See §6; fallback `UNKNOWN` |
 | `$TIMEELAPSED` | Time since the match started | `GRI.ElapsedTime` formatted `m:ss`; fallback `0:00` |
-| `$TIMEREMAINING` | Time before the clock runs out | `GRI.RemainingTime` formatted `m:ss`, or `Warmup`, `No Limit`, `Overtime`; fallback `Unknown` |
+| `$TIMEREMAINING` | Time before the clock runs out | `GRI.RemainingTime` formatted `m:ss`, or `WARMUP`, `NO LIMIT`, `OVERTIME`; fallback `UNKNOWN` |
 
 Clock format is minutes without leading zero and seconds with two digits:
 `0:07`, `4:05`, `12:34`.
@@ -312,25 +312,25 @@ GRAY MARKET PAYOUT: $RANDOM1_50K CREDITS.   →   GRAY MARKET PAYOUT: 43.781 CRE
 
 | Result | Condition |
 | --- | --- |
-| `Unknown` | No `GameReplicationInfo` yet |
-| `Warmup` | `!GRI.bMatchHasBegun` |
-| `Concluded` | `GRI.bStopCountDown` or `GRI.Winner != None` |
-| `Overtime` | `GRI.TimeLimit > 0 && GRI.RemainingTime <= 0` |
-| `Live` | Anything else |
+| `UNKNOWN` | No `GameReplicationInfo` yet |
+| `WARMUP` | `!GRI.bMatchHasBegun` |
+| `CONCLUDED` | `GRI.bStopCountDown` or `GRI.Winner != None` |
+| `OVERTIME` | `GRI.TimeLimit > 0 && GRI.RemainingTime <= 0` |
+| `LIVE` | Anything else |
 
 `$TIMEREMAINING` uses the same information:
 
 | Result | Condition |
 | --- | --- |
-| `Unknown` | No `GameReplicationInfo` |
-| `Warmup` | Match has not begun |
-| `No Limit` | `GRI.TimeLimit <= 0` |
-| `Overtime` | Time limit exists and `GRI.RemainingTime <= 0` |
+| `UNKNOWN` | No `GameReplicationInfo` |
+| `WARMUP` | Match has not begun |
+| `NO LIMIT` | `GRI.TimeLimit <= 0` |
+| `OVERTIME` | Time limit exists and `GRI.RemainingTime <= 0` |
 | `m:ss` | Normal countdown |
 
 **Sudden death is not exposed by `GameReplicationInfo`.** Stock UT2004 keeps
 the overtime/sudden-death flag on the server-side `GameInfo`, not in the
-replicated info. The feed therefore reports `Overtime` for both. Adding a
+replicated info. The feed therefore reports `OVERTIME` for both. Adding a
 replicated flag would require a custom game-info/RI and is intentionally out of
 scope.
 
