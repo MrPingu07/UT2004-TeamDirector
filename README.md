@@ -87,7 +87,9 @@ inherit from `TeamGame`.
 1. Copy `prebuilt/System/MutTechDirector.u`,
    `prebuilt/System/MutTechDirector.ucl` (if present),
    `install/MutTechDirector.int` and `install/MutTechDirector.ini` into
-   `UT2004/System/`.
+   `UT2004/System/`. The `.ini` is only needed on the server/host or for
+   standalone play: on a server, the message list is replicated to each
+   Director's client, so joining players can skip it.
 2. Start the game, open **Instant Action** or **Host Game**, and select
    **Tournament Technical Director** in the mutator list.
 3. Optional: press **Configure Mutators** in that list to tune the nine transmat

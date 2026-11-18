@@ -19,6 +19,8 @@ var transient float CycleStart;
 var transient float LastDrawTime;
 var transient string CurrentMessage;
 var transient array<int> FeedBag;
+/** Number of messages the current bag was built from; reset when it changes. */
+var transient int FeedBagSize;
 
 /**
  * Override the native vehicle name drawing.  This is the entire point of
@@ -126,8 +128,30 @@ simulated function bool GetCursorVisible(float PhaseTime, int Phase)
 }
 
 /**
- * Picks a message from the config-backed shuffle bag (DirectorFeed) and
- * expands its live-match tokens.
+ * Return the DirectorReplicationInfo owned by this client, if it has
+ * replicated yet.  The HUD prefers its replicated feed list over the local
+ * ini so every client shows the server's broadcast.
+ */
+simulated function DirectorReplicationInfo GetDirectorRI()
+{
+    local DirectorReplicationInfo RI;
+
+    if (PlayerOwner == None)
+        return None;
+
+    foreach AllActors(class'DirectorReplicationInfo', RI)
+    {
+        if (RI != None && RI.DirectorPC == PlayerOwner)
+            return RI;
+    }
+
+    return None;
+}
+
+/**
+ * Picks a message from the server-replicated feed (DirectorReplicationInfo)
+ * and expands its live-match tokens.  Falls back to the local
+ * class'DirectorFeed'.default.Messages only if no replicated list is available.
  *
  * No message repeats until all have been shown. Empty entries are skipped.
  * Width is deliberately not filtered: token values vary in length, and the
@@ -136,12 +160,36 @@ simulated function bool GetCursorVisible(float PhaseTime, int Phase)
  */
 simulated function string PickMessage()
 {
+    local DirectorReplicationInfo DirRI;
     local int n, i, j, tmp, Tries;
     local string Msg;
 
-    n = class'DirectorFeed'.default.Messages.Length;
+    DirRI = GetDirectorRI();
+    if (DirRI != None)
+        n = DirRI.FeedMessageCount;
+    else
+        n = 0;
+
+    if (n > 0)
+    {
+        if (n > ArrayCount(DirRI.FeedMessages))
+            n = ArrayCount(DirRI.FeedMessages);
+    }
+    else
+    {
+        n = class'DirectorFeed'.default.Messages.Length;
+        DirRI = None;
+    }
+
     if (n == 0)
         return class'DirectorFeed'.static.ExpandTokens("TECHNICAL DIRECTOR MODE", PlayerOwner);
+
+    // A changed source (fallback -> replicated list) invalidates old indices.
+    if (FeedBagSize != n)
+    {
+        FeedBag.Length = 0;
+        FeedBagSize = n;
+    }
 
     for (Tries = 0; Tries < n; Tries++)
     {
@@ -161,7 +209,10 @@ simulated function string PickMessage()
 
         i = FeedBag[FeedBag.Length - 1];
         FeedBag.Length = FeedBag.Length - 1;
-        Msg = class'DirectorFeed'.default.Messages[i];
+        if (DirRI != None)
+            Msg = DirRI.FeedMessages[i];
+        else
+            Msg = class'DirectorFeed'.default.Messages[i];
         if (Msg != "")
             return class'DirectorFeed'.static.ExpandTokens(Msg, PlayerOwner);
     }

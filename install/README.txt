@@ -26,6 +26,10 @@ INSTALL
 4. Optional: click "Configure Mutators" to tune the nine cooldowns.
 5. In game, press B to enter the booth (5 second delay) or leave instantly.
 
+If you only join other people's servers, MutTechDirector.ini is optional: the
+server sends its feed list to your client. Install it if you host or play
+Instant Action and want to customize the banner text.
+
 The B key is bound automatically on spawn. The console command
 "mutate director" also works. Older installs that used N have that stale bind
 cleared automatically.
@@ -81,12 +85,13 @@ owns no control point.
 FEED MESSAGES (TYPEWRITER BANNER)
 ---------------------------------
 
-The bottom banner types random messages from a config array. Each client reads
-its own MutTechDirector.ini. The file shipped with this archive already
-contains the tournament feed.
+The bottom banner types random messages from a config array. The **server or
+host** reads MutTechDirector.ini and sends its message list to each Director's
+client, so joining players do not need the file. The copy shipped with this
+archive already contains the tournament feed.
 
 To customize messages, edit the [MutTechDirector.DirectorFeed] section of
-UT2004/System/MutTechDirector.ini directly:
+MutTechDirector.ini on the server/host:
 
     [MutTechDirector.DirectorFeed]
     Messages=TECHNICAL DIRECTOR MODE
@@ -106,7 +111,10 @@ Message text is uppercased automatically, so it can be written in normal
 sentence case. Token values keep their original casing (player names, server
 names, map titles and team names are not forced to caps).
 
-The HUD runs on the client, so each client must have the .ini file.
+The HUD runs on the client, but the message list is replicated from the
+server. A client-local MutTechDirector.ini is ignored during a networked match
+when the server provides a list. For standalone/Instant Action, the local file
+is used as usual.
 
 TROUBLESHOOTING
 ---------------

@@ -1,7 +1,7 @@
 # Broadcasting System
 
 This document covers the Tournament Technical Director's ambient **broadcast
-feed**: the typewriter banner at the bottom of the booth HUD, its per-client
+feed**: the typewriter banner at the bottom of the booth HUD, its server-side
 `.ini` configuration, and the live-match tokens that can appear inside each
 message.
 
@@ -15,7 +15,7 @@ the end for contrast.
 
 | Channel | Class | Position | Contents | Configurable |
 | --- | --- | --- | --- | --- |
-| **Broadcast feed** | `DirectorHUD` | Bottom banner, inside the team-coloured band | Ambient, shuffled messages with live-match tokens | Yes, per client, via `MutTechDirector.ini` |
+| **Broadcast feed** | `DirectorHUD` | Bottom banner, inside the team-coloured band | Ambient, shuffled messages with live-match tokens | Yes, server-side, via `MutTechDirector.ini` |
 | **Director notifications** | `DirectorNotify` | Upper centre (`PosY=0.18`) | Ability confirmations, booth state, errors ("Blindage authorized", "Not enough space", ...) | No |
 
 The feed is cosmetic and never authoritative. It reads replicated match state
@@ -29,39 +29,51 @@ only; it never changes gameplay, scores, or cooldowns.
 | --- | --- |
 | `source/MutTechDirector/Classes/DirectorFeed.uc` | Config-backed message array plus the token helpers and `ExpandTokens()` |
 | `source/MutTechDirector/Classes/DirectorHUD.uc` | Shuffle bag, message selection, snapshotting, typewriter rendering |
+| `source/MutTechDirector/Classes/DirectorReplicationInfo.uc` | Replicates the server's feed list to the Director's client |
 | `install/MutTechDirector.ini` | Shipped source copy of the feed config; this is the file edited and released |
-| `<UT2004>/System/MutTechDirector.ini` | Runtime configuration read by every client |
+| `<UT2004>/System/MutTechDirector.ini` | Runtime configuration read by the **server/host** |
 | `install/README.txt` | End-user instructions for the same workflow |
 
-The HUD runs on each client. There is no server→client feed message
-transmission: every client loads its own `MutTechDirector.ini` and computes
-tokens from replicated state locally.
+The HUD and token expansion run on each client, but the **message list comes
+from the server**. The server reads `MutTechDirector.ini`, snapshots the list
+into `DirectorReplicationInfo`, and replicates it to the Director's client.
+Joining players therefore do not need the ini, and everyone sees the host's
+broadcast. Tokens are still resolved client-side from replicated match state,
+so they stay live on each client.
 
 ---
 
 ## 3. Data flow
 
 ```text
-install/MutTechDirector.ini
+install/MutTechDirector.ini                (server/host install)
    │  copied into <UT2004>/System/ (tools/build.sh does this)
    ▼
-<UT2004>/System/MutTechDirector.ini
+<UT2004>/System/MutTechDirector.ini        (server/host)
    │
    ▼
-class'DirectorFeed'.default.Messages
-                              │
-                              ▼
-                    PickMessage()  ── shuffle bag, empty entries skipped
-                              │
-                              ▼
-          DirectorFeed.ExpandTokens(Msg, PlayerOwner)  ── live match state
-                              │
-                              ▼
-                    CurrentMessage  ── snapshot, once per cycle
-                              │
-                              ▼
-              typewriter phases ──► Canvas.DrawText
+class'DirectorFeed'.default.Messages       (server)
+   │  CopyFeedMessages() when the booth opens
+   ▼
+DirectorReplicationInfo.FeedMessages[256]  ── reliable, owner-only ──► client
+                                                                        │
+                                                                        ▼
+                                                          PickMessage()
+                                                     shuffle bag, empty entries
+                                                                        │
+                                                                        ▼
+                                          DirectorFeed.ExpandTokens(Msg, PC)
+                                              live match state, client-side
+                                                                        │
+                                                                        ▼
+                                                CurrentMessage  (snapshot)
+                                                                        │
+                                                                        ▼
+                                                  typewriter ──► Canvas
 ```
+
+The list is capped at **256 messages**; entries beyond that are ignored. The
+current feed is 110 messages.
 
 ### 3.1 Config file and section
 
@@ -85,20 +97,21 @@ is not parsed".
    source copy; there is no separate message list or conversion script.
 2. Keep the `[MutTechDirector.DirectorFeed]` section and use one repeated
    `Messages=` line per entry.
-3. Install it into `<UT2004>/System/MutTechDirector.ini`. `tools/build.sh`
-   copies it automatically during a build; for a manual install, copy the
-   file.
-4. Restart UT2004 (config is loaded at startup).
+3. Install it into `<UT2004>/System/MutTechDirector.ini` **on the server or
+   host**. `tools/build.sh` copies it automatically during a build; for a
+   manual install, copy the file. Clients do not need it: the server sends
+   them the list when a Director enters the booth.
+4. Restart UT2004 on the host (config is loaded at startup).
 
-Every client needs its own copy. The compiled defaults are:
+The compiled defaults are:
 
 ```text
 TECHNICAL DIRECTOR MODE
 PRESS [B] TO EXIT BOOTH
 ```
 
-They remain the fallback whenever the config array is empty or the ini cannot
-be read.
+They remain the fallback whenever the server's config array is empty, the
+server's ini cannot be read, or a client receives no replicated list.
 
 ---
 
@@ -106,13 +119,15 @@ be read.
 
 ### 4.1 Shuffle bag
 
-`DirectorHUD.PickMessage()` keeps a shuffle bag of message indices:
+`DirectorHUD.PickMessage()` keeps a shuffle bag of message indices over the
+server-replicated list:
 
 - Every configured message is shown once before any message repeats.
 - The bag is refilled and reshuffled when empty.
 - Empty strings are consumed and skipped.
 - If every entry is empty, the HUD falls back to `TECHNICAL DIRECTOR MODE`.
-- The bag lives on the HUD and persists for the booth session.
+- The bag is reset when the message source changes (local fallback → server
+  list) and persists for the booth session otherwise.
 
 ### 4.2 Snapshot at message start
 
@@ -331,7 +346,8 @@ client-side token without extra networking:
 ## 9. Testing and troubleshooting
 
 **All cycles show the same two messages.**
-The ini was not read. Check:
+The server did not read its ini, so the compiled defaults were replicated.
+Check on the **server/host**:
 
 ```sh
 grep -n '^\[MutTechDirector.DirectorFeed\]' \
@@ -341,12 +357,19 @@ grep -c '^Messages=' \
 ```
 
 The section must exist and use repeated `Messages=` keys. `Messages(0)=` will
-not work. Also confirm the file is in the same `System` directory as
-`MutTechDirector.u`, and restart the game.
+not work. Confirm the file is in the server's `System` directory next to
+`MutTechDirector.u`, then restart the server. The server's log prints
+`replicated N feed messages` when a Director enters the booth.
+
+**A client still shows the compiled defaults while the server has a feed.**
+The client did not receive `DirectorReplicationInfo`, or the booth was opened
+before it replicated. Re-enter the booth. The client-local
+`MutTechDirector.ini` is ignored whenever the replicated list has entries.
 
 **A token appears literally (e.g. `$MAPNAME`).**
-Check spelling and capitalisation. Tokens are case-sensitive and must exist in
-the compiled package. Rebuild after adding a token.
+Check spelling and that the token exists in the compiled package. Token
+matching is case-insensitive because the template is uppercased first, but
+the canonical style is uppercase. Rebuild after adding a token.
 
 **The banner is blank for a cycle.**
 An entry in the ini is empty. Empty entries are skipped, so this only matters
@@ -380,9 +403,15 @@ Expected; see §10.
 - **Free-for-all team tokens.** Slots 0/1 exist but are not meaningful.
 - **Localisation.** `Level.Title`, `GRI.GameName` and player names are printed
   as reported by the game; the feed does not translate or normalise them.
-- **Per-client configuration.** Two clients can run different message lists.
-  The feed is cosmetic, so this is acceptable, but it means "everyone sees the
-  same broadcast" is not guaranteed.
+- **256-message cap.** The replicated array is fixed at 256 entries. Extra
+  `Messages=` lines beyond that are dropped. The shipped feed has 110.
+- **Client-local ini is ignored when the server list arrives.** Editing your
+  own `MutTechDirector.ini` on a client has no effect during a networked
+  match; edit the server's copy instead. Standalone/Instant Action uses the
+  local file, so single-player still works as before.
+- **Server list is snapshotted when the booth opens.** Changing the server's
+  ini mid-match does not reach an already-active booth; it applies on the next
+  entry (or after a map change/restart).
 - **Control characters.** Player colour codes are preserved by design. A name
   with unusual control sequences will render exactly as the game would render
   it.

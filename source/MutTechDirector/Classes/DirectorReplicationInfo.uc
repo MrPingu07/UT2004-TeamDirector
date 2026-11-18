@@ -57,6 +57,14 @@ var int TeamDead;
 /** Replicated list of friendly turrets (DirectorSentinels) for beacon display. */
 var Pawn TeamTurrets[16];
 
+/**
+ * Server-configured broadcast feed, replicated to the owning client so a
+ * joining player does not need a local MutTechDirector.ini.  The server reads
+ * its own copy of the ini and every Director gets the same list.
+ */
+var string FeedMessages[256];
+var int FeedMessageCount;
+
 /** Server-configured cooldown ceiling per slot, replicated from the mutator. */
 var float MaxCooldowns[9];
 
@@ -134,7 +142,8 @@ replication
     // Server -> owning client: live telemetry used by the HUD and camera.
     reliable if (Role == ROLE_Authority)
         DirectorPC, DirectorTeam, bDirectorActive, bHealing, CurrentTarget,
-        TeamAlive, TeamDead, MaxCooldowns, TeamTurrets;
+        TeamAlive, TeamDead, MaxCooldowns, TeamTurrets,
+        FeedMessages, FeedMessageCount;
 
     reliable if (Role == ROLE_AuthorITY)
         Cooldown1, Cooldown2, Cooldown3, Cooldown4,
@@ -318,6 +327,7 @@ function BeginEntryCountdown(MutTechDirector M, PlayerController PC, byte Team,
     TeamAlive = 0;
     TeamDead = 0;
     CopyCooldownSettings(M);
+    CopyFeedMessages();
     UpdateTeamCounts();
     ClientNotify("Entering Technical Director booth in " $ LastEntrySecond $ "...");
 }
@@ -337,6 +347,30 @@ function CopyCooldownSettings(MutTechDirector M)
     MaxCooldowns[6] = M.Cooldown7;
     MaxCooldowns[7] = M.Cooldown8;
     MaxCooldowns[8] = M.Cooldown9;
+}
+
+/**
+ * Snapshot the server's MutTechDirector.ini feed into the replicated array.
+ * Clients display this list instead of reading their own ini; the server is
+ * the single source of truth for the broadcast.
+ */
+function CopyFeedMessages()
+{
+    local int i;
+    local int n;
+
+    n = class'DirectorFeed'.default.Messages.Length;
+    if (n > ArrayCount(FeedMessages))
+        n = ArrayCount(FeedMessages);
+
+    for (i = 0; i < ArrayCount(FeedMessages); i++)
+        FeedMessages[i] = "";
+
+    for (i = 0; i < n; i++)
+        FeedMessages[i] = class'DirectorFeed'.default.Messages[i];
+
+    FeedMessageCount = n;
+    Log("MutTechDirector: replicated " $ n $ " feed messages to " $ DirectorPC);
 }
 
 /** The entry delay expired: bring the booth online. */
