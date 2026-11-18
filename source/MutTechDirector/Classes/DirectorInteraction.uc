@@ -147,12 +147,12 @@ function Tick(float DeltaTime)
     if (bIsVehicle)
     {
         MaxZoom = 15000.0;
-        ZoomSpeed = 2976.0;  // (15000 - 120) / 5
+        ZoomSpeed = 4960.0;  // (15000 - 120) / 3
     }
     else
     {
         MaxZoom = 3000.0;
-        ZoomSpeed = 576.0;   // (3000 - 120) / 5
+        ZoomSpeed = 960.0;   // (3000 - 120) / 3
     }
 
     if (bZoomIn)
