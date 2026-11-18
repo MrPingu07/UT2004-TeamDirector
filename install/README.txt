@@ -102,6 +102,10 @@ $TOPFRAGGERSCORE, $PLAYERCOUNT, $TOPTEAMNAME and the rest of the roster. The
 full list, fallbacks and match-state rules are documented in
 docs/BROADCASTING.md.
 
+Message text is uppercased automatically, so it can be written in normal
+sentence case. Token values keep their original casing (player names, server
+names, map titles and team names are not forced to caps).
+
 The HUD runs on the client, so each client must have the .ini file.
 
 TROUBLESHOOTING

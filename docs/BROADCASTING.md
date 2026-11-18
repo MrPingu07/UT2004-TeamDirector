@@ -147,14 +147,22 @@ through untouched. The banner therefore preserves UT2004 colour sequences and
 punctuation exactly as the game reports them. This is intentional; the feed is
 not a sanitising layer.
 
+Only the message template is uppercased. Dynamic values keep their own casing,
+so a player named `xX_Sn1p3r_Xx` is not mangled into `XX_SN1P3R_XX`.
+
 ---
 
 ## 5. Token reference
 
 ### 5.1 General rules
 
-- Tokens are **uppercase and case-sensitive**. `$MAPNAME` expands;
-  `$mapname` does not.
+- Literal message text is uppercased before token replacement, so messages may
+  be authored in normal sentence case. As a side effect token matching is
+  effectively case-insensitive (`$mapname` also works), but uppercase remains
+  the canonical style.
+- **Token values are inserted after uppercasing**, so player names, server
+  names, map names and team names keep their original casing. Only the
+  template text is forced to caps.
 - Tokens are plain text in the `.ini`; the `$` character has no special
   meaning to the config parser. In UnrealScript `$` is the concatenation
   operator, but only outside string literals.

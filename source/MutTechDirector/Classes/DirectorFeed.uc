@@ -54,6 +54,11 @@ static function string ExpandTokens(string Msg, PlayerController PC)
     if (Msg == "")
         return Msg;
 
+    // The banner is styled as an all-caps broadcast. Uppercase the template
+    // before token replacement so player names and other live values keep
+    // their original casing. It also makes token matching case-insensitive.
+    Msg = Caps(Msg);
+
     GRI = None;
     if (PC != None)
         GRI = PC.GameReplicationInfo;
