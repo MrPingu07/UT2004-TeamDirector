@@ -229,7 +229,7 @@ simulated function DrawSpectatingHud(Canvas C)
         TeamColor.R = 100; TeamColor.G = 150; TeamColor.B = 255; TeamColor.A = 255;
     }
     
-    // Banner dimensions
+    // Banner dimensions (80px fixed height)
     BannerHeight = 80.0;
     BannerY = C.ClipY - BannerHeight;
     BannerX = 0.0;
@@ -250,71 +250,21 @@ simulated function DrawSpectatingHud(Canvas C)
     C.SetPos(0, BannerY + BannerHeight - 3.0);
     C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, 3.0);
     
-    // Unreal "U" logo at LEFT margin (front layer)
-    LogoSize = 48.0;
-    LogoX = 16.0;  // Left margin
-    LogoY = BannerY + (BannerHeight - LogoSize) * 0.5;
+    // Stock spectator HUD logo (LastManStanding.LMSLogoSmall) at left, scaled to banner
+    // Matches HudBDeathMatch/HudCDeathmatch: logo height = BannerHeight + 16, drawn 8px above banner top
+    LogoSize = BannerHeight + 16.0;  // 96px for 80px banner
+    LogoX = 0.0;
+    LogoY = BannerY - 8.0;
     
-    // Draw Unreal "U" logo
     C.Style = ERenderStyle.STY_Alpha;
     C.SetDrawColor(255, 255, 255, 255);
     C.SetPos(LogoX, LogoY);
     C.DrawTile(
-        Texture'InterfaceContent.Logos.Logo',
-        48.0, 48.0,
+        material'LastManStanding.LMSLogoSmall',
+        LogoSize * 2.0,  // width = 2 * height (256/128 aspect)
+        LogoSize,
         0, 0,
-        256, 256
-    );
-    C.Style = ERenderStyle.STY_Normal;
-    
-    // Team color for stripes and text
-    if (TeamNum == 0)
-    {
-        // Red team
-        StripeColor.R = 255; StripeColor.G = 0;   StripeColor.B = 0;   StripeColor.A = 255;
-        TeamColor.R = 255; TeamColor.G = 100; TeamColor.B = 100; TeamColor.A = 255;
-    }
-    else
-    {
-        // Blue team
-        StripeColor.R = 51;  StripeColor.G = 102; StripeColor.B = 255; StripeColor.A = 255;
-        TeamColor.R = 100; TeamColor.G = 150; TeamColor.B = 255; TeamColor.A = 255;
-    }
-    
-    // Banner dimensions - keep at bottom
-    BannerHeight = 80.0;
-    BannerY = C.ClipY - BannerHeight;
-    BannerX = 0.0;
-    BannerWidth = C.ClipX;
-    
-    // Dark transparent band (80% opacity black)
-    C.Style = ERenderStyle.STY_Alpha;
-    C.SetDrawColor(0, 0, 0, 204);
-    C.SetPos(0, BannerY);
-    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, BannerHeight);
-    C.Style = ERenderStyle.STY_Normal;
-    
-    // Team-colored stripes at top and bottom of banner (3px each)
-    C.SetDrawColor(StripeColor.R, StripeColor.G, StripeColor.B, 255);
-    C.SetPos(0, BannerY);
-    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, 3.0);
-    C.SetPos(0, BannerY + BannerHeight - 3.0);
-    C.DrawTileStretched(material'InterfaceContent.SquareBoxA', C.ClipX, 3.0);
-    
-    // Unreal "U" logo at LEFT margin (front layer)
-    LogoSize = 48.0;
-    LogoX = 16.0;  // Left margin
-    LogoY = BannerY + (BannerHeight - LogoSize) * 0.5;
-    
-    // Draw Unreal "U" logo
-    C.Style = ERenderStyle.STY_Alpha;
-    C.SetDrawColor(255, 255, 255, 255);
-    C.SetPos(LogoX, LogoY);
-    C.DrawTile(
-        Texture'InterfaceContent.Logos.Logo',
-        48.0, 48.0,
-        0, 0,
-        256, 256
+        256, 128
     );
     C.Style = ERenderStyle.STY_Normal;
     
