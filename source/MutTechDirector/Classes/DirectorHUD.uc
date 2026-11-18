@@ -11,6 +11,15 @@
 //=============================================================================
 class DirectorHUD extends XInterface.HudBase;
 
+const FLICKER_STEP = 0.1666667;
+const BLINK_INTERVAL = 0.5;
+const TOTAL_CYCLE = 22.0;
+
+var transient float CycleStart;
+var transient float LastDrawTime;
+var transient string CurrentMessage;
+var transient array<int> FeedBag;
+
 /**
  * Override the native vehicle name drawing.  This is the entire point of
  * this HUD: the stock HudBase.DrawVehicleName is called from native C++
@@ -80,36 +89,80 @@ simulated function DrawMessage(Canvas C, int i, float PosX, float PosY, out floa
 }
 
 /**
- * Draw a scrolling text copy with proper clipping at left edge.
- * Uses prefix width measurement so text exits character-by-character.
+ * Returns the current phase (0-9) and its start time for a given cycle time T.
+ * Phases: 0=flicker(0-1), 1=blink(1-2), 2=type(2-3), 3=blink(3-6), 4=hold(6-11),
+ *         5=flicker(11-12), 6=blink(12-13), 7=delete(13-14), 8=blink(14-17), 9=rest(17-22).
  */
-simulated function DrawScrollCopy(Canvas C, string S, float X, float Y)
+simulated function GetPhaseInfo(float T, out int Phase, out float PhaseStart)
 {
-    local int Start;
-    local float PW;
-    local float PH;
+    if (T < 1.0)       { Phase = 0; PhaseStart = 0.0;  }
+    else if (T < 2.0)  { Phase = 1; PhaseStart = 1.0;  }
+    else if (T < 3.0)  { Phase = 2; PhaseStart = 2.0;  }
+    else if (T < 6.0)  { Phase = 3; PhaseStart = 3.0;  }
+    else if (T < 11.0) { Phase = 4; PhaseStart = 6.0;  }
+    else if (T < 12.0) { Phase = 5; PhaseStart = 11.0; }
+    else if (T < 13.0) { Phase = 6; PhaseStart = 12.0; }
+    else if (T < 14.0) { Phase = 7; PhaseStart = 13.0; }
+    else if (T < 17.0) { Phase = 8; PhaseStart = 14.0; }
+    else               { Phase = 9; PhaseStart = 17.0; }
+}
 
-    if (X >= C.ClipX)
-        return;
+/**
+ * Returns whether the cursor should be visible at the given phase time.
+ * FLICKER phases (0,5): 3 blinks in 1s ending OFF (step 1/6s, starts ON).
+ * BLINK phases (1,3,6,8): toggles every 0.5s, starts ON.
+ * TYPE/DELETE phases (2,7): always ON.
+ * HOLD/REST phases (4,9): always OFF.
+ */
+simulated function bool GetCursorVisible(float PhaseTime, int Phase)
+{
+    if (Phase == 0 || Phase == 5)
+        return (int(PhaseTime / FLICKER_STEP) % 2) == 0;
+    if (Phase == 1 || Phase == 3 || Phase == 6 || Phase == 8)
+        return (int(PhaseTime / BLINK_INTERVAL) % 2) == 0;
+    if (Phase == 2 || Phase == 7)
+        return true;
+    return false;
+}
 
-    Start = 0;
-    if (X < 0)
+/**
+ * Picks a message from the config-backed shuffle bag (DirectorFeed).
+ * No message repeats until all have been shown. Skips empty or too-wide messages.
+ */
+simulated function string PickMessage(Canvas C)
+{
+    local int n, i, j, tmp, Tries;
+    local string Msg;
+    local float W, H;
+
+    C.Font = C.MedFont;
+    n = class'DirectorFeed'.default.Messages.Length;
+    if (n == 0)
+        return "TECHNICAL DIRECTOR MODE";
+
+    for (Tries = 0; Tries < n; Tries++)
     {
-        // Skip characters until the left edge of the first one is on screen
-        while (Start < Len(S))
+        if (FeedBag.Length == 0)
         {
-            C.StrLen(Left(S, Start), PW, PH);
-            if (X + PW >= 0)
-                break;
-            Start++;
+            FeedBag.Length = n;
+            for (i = 0; i < n; i++)
+                FeedBag[i] = i;
+            for (i = n - 1; i > 0; i--)
+            {
+                j = Rand(i + 1);
+                tmp = FeedBag[i];
+                FeedBag[i] = FeedBag[j];
+                FeedBag[j] = tmp;
+            }
         }
-        if (Start >= Len(S))
-            return;
+        i = FeedBag[FeedBag.Length - 1];
+        FeedBag.Length = FeedBag.Length - 1;
+        Msg = class'DirectorFeed'.default.Messages[i];
+        C.StrLen(Msg, W, H);
+        if (Msg != "" && W <= C.ClipX * 0.9)
+            return Msg;
     }
-
-    C.StrLen(Left(S, Start), PW, PH);
-    C.SetPos(X + PW, Y);
-    C.DrawText(Mid(S, Start), false);
+    return "TECHNICAL DIRECTOR MODE";
 }
 
 /**
@@ -132,23 +185,18 @@ simulated function DrawSpectatingHud(Canvas C)
     local float LogoX;
     local float LogoY;
     local color TeamColor;
-    local color BandColor;
     local color StripeColor;
-    local string ScrollText;
-    local float TextX;
     local float TextYPos;
-    local float TextWidth;
-    local float TextHeight;
-    local float ScrollSpeed;
-    local float ScrollOffset;
     local int TeamNum;
-    local string TeamName;
     local Pawn TargetPawn;
     local PlayerReplicationInfo TargetPRI;
-    local float TextY;
-    local float Gap;
-    local float Period;
-    local int i;
+
+    // Typewriter + cursor locals
+    local float CycleElapsed, PhaseStart, PhaseTime;
+    local int Phase, L, Shown, Start;
+    local float FullWidth, AnchorX, SliceX, CursorX, PH, Dummy;
+    local bool CursorVisible;
+    local byte OldStyle;
     
     // First, draw the native chat feed at its native position (bottom of screen)
     DisplayLocalMessages(C);
@@ -270,50 +318,61 @@ simulated function DrawSpectatingHud(Canvas C)
     );
     C.Style = ERenderStyle.STY_Normal;
     
-    // Custom scrolling text area (3x larger text)
-    if (TeamNum == 0)
-        TeamName = "RED";
-    else
-        TeamName = "BLUE";
-    ScrollText = "TECHNICAL DIRECTOR MODE  |  SPECTATING: " $ TargetPRI.PlayerName $ "  |  TEAM: " $ TeamName $ "  |  PRESS [B] TO EXIT BOOTH";
-    
-    // Scrolling text animation - use larger font (3x bigger via MedFont instead of SmallFont)
-    C.Font = C.MedFont;  // 3x larger than SmallFont
-    C.StrLen(ScrollText, TextWidth, TextHeight);
-    
-    // Scrolling text animation
-    ScrollSpeed = 80.0; // pixels per second
-    ScrollOffset = (Level.TimeSeconds * 80.0) % (TextWidth + C.ClipX);
-    
-    // Gap = 160 px = 2s pause at 80 px/s
-    Gap = 160.0;
-    Period = TextWidth + C.ClipX + Gap;
-    
-    ScrollOffset = (Level.TimeSeconds * ScrollSpeed) % Period;
-    
-    // Travel phase: TextX goes from C.ClipX down to -TextWidth (distance = TextWidth + C.ClipX)
-    // Pause phase: stays at -TextWidth for Gap distance
-    if (ScrollOffset < TextWidth + C.ClipX)
-    {
-        // Travel phase: TextX moves from C.ClipX to -TextWidth
-        TextX = C.ClipX - ScrollOffset;
-    }
-    else
-    {
-        // Pause phase: text fully off-screen left
-        TextX = -TextWidth;
-    }
-    
-    TextYPos = BannerY + (BannerHeight - TextHeight) * 0.5;
+    // Typewriter + blinking cursor banner (centered, no horizontal motion)
 
-    // Draw scrolling text with single copy + pause gap
-    // Only draw when text is fully or partially on-screen from left edge (TextX >= 0)
-    if (TextX >= 0)
+    // Center text vertically in banner
+    C.Font = C.MedFont;
+    C.StrLen("X", Dummy, PH);  // PH = line height for MedFont
+    TextYPos = BannerY + (BannerHeight - PH) * 0.5;
+
+    CycleElapsed = Level.TimeSeconds - CycleStart;
+    if (CurrentMessage == "" || CycleElapsed >= TOTAL_CYCLE
+        || Level.TimeSeconds - LastDrawTime > 0.5)
     {
+        CycleStart = Level.TimeSeconds;
+        CurrentMessage = PickMessage(C);
+    }
+    LastDrawTime = Level.TimeSeconds;
+    CycleElapsed = Level.TimeSeconds - CycleStart;
+
+    GetPhaseInfo(CycleElapsed, Phase, PhaseStart);
+    PhaseTime = FMax(0.0, CycleElapsed - PhaseStart);
+    CursorVisible = GetCursorVisible(PhaseTime, Phase);
+
+    C.Font = C.MedFont;
+    C.StrLen(CurrentMessage, FullWidth, PH);
+    AnchorX = (C.ClipX - FullWidth) * 0.5;
+    L = Len(CurrentMessage);
+
+    if (Phase == 2)
+        Shown = Min(L, int(PhaseTime * L));
+    else if (Phase == 7)
+        Shown = L - Min(L, int(PhaseTime * L));
+    else if (Phase >= 3 && Phase <= 6)
+        Shown = L;
+    else
+        Shown = 0;
+    Start = (L - Shown) / 2;
+
+    if (Shown > 0)
+    {
+        C.StrLen(Left(CurrentMessage, Start), SliceX, Dummy);
+        SliceX += AnchorX;
         C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
-        C.Font = C.MedFont;
-        C.SetPos(TextX, TextYPos);
-        C.DrawText(ScrollText, false);
+        C.SetPos(SliceX, TextYPos);
+        C.DrawText(Mid(CurrentMessage, Start, Shown), false);
+    }
+
+    if (CursorVisible)
+    {
+        C.StrLen(Left(CurrentMessage, Start + Shown), CursorX, Dummy);
+        CursorX += AnchorX;
+        OldStyle = C.Style;
+        C.Style = ERenderStyle.STY_Alpha;
+        C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
+        C.SetPos(CursorX, TextYPos);
+        C.DrawTileStretched(material'InterfaceContent.SquareBoxA', 8.0, PH);
+        C.Style = OldStyle;
     }
 
 }

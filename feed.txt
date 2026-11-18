@@ -1,0 +1,7 @@
+# Director feed messages - one per line, blank lines and # comments ignored
+# Messages wider than 90% of screen width will be skipped at runtime
+TECHNICAL DIRECTOR MODE
+PRESS [B] TO EXIT BOOTH
+WELCOME TO THE TOURNAMENT
+SPECTATOR BOOTH ACTIVE
+DIRECTOR FEED ONLINE

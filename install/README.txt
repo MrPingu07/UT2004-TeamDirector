@@ -77,6 +77,23 @@ collision transparency. In DOM/cDOM2, a recall fails explicitly if the team
 owns no control point.
 
 
+FEED MESSAGES (TYPEWRITER BANNER)
+---------------------------------
+
+The bottom banner types random messages from a config array. Each client reads
+its own MutTechDirector.ini.
+
+To customize messages:
+
+1. Edit feed.txt in the project root (one message per line; # comments ignored).
+2. Run: tools/feed2ini.sh
+3. Copy System/MutTechDirector.ini to every client's UT2004/System/ folder.
+
+Default messages: "TECHNICAL DIRECTOR MODE" and "PRESS [B] TO EXIT BOOTH".
+Messages wider than 90% of screen width are skipped at runtime.
+
+The HUD runs on the client, so each client must have the .ini file.
+
 TROUBLESHOOTING
 ---------------
 

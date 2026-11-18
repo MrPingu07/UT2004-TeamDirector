@@ -301,3 +301,16 @@ master-server DNS failures) appears in this install regardless of the mutator.
   temporary edit.
 - No custom ammo actor spawning: `Weapon.AddAmmo()` is sufficient and works
   with stock ammo-instance behavior.
+
+## 18. DrawText clipping and wrap (UT2004)
+
+Why the horizontal panning text ticker was abandoned in `DirectorHUD.DrawSpectatingHud`:
+
+- `Canvas.DrawText` does not clip. `SetOrigin`/`SetClip` only affect tile drawing, not text.
+- A string wider than the space left before `ClipX` is word-wrapped: it breaks by words, drops a line and continues from the left margin.
+- Text at negative X misbehaves the same way (wrap to the left edge).
+- Substring clipping with `Mid()` works only in whole characters, so the motion steps at the left edge instead of sliding.
+- Drawing only when `TextX >= 0` makes the whole string vanish when its left edge touches X = 0.
+- The loop copy (`LoopX = TextX + TextWidth`) died at the left border because the modulo in `TextX` reset exactly when the copy reached X = 0.
+
+The replacement design (center-out typewriter + blinking cursor) avoids all of this: the text is always centered at a fixed anchor, only a slice that fits on screen is ever passed to `DrawText`, and nothing moves horizontally.
