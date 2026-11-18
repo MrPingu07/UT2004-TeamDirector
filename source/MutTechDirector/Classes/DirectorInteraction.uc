@@ -320,6 +320,9 @@ function PostRender(Canvas C)
     local string DisplayName;
     local string PlateText;
     local int Pass;
+    local bool bFixedPosition;
+    local float FixedX;
+    local float FixedY;
 
     if (RI == None || RI.bDeleteMe)
     {
@@ -549,37 +552,77 @@ function PostRender(Canvas C)
                 }
             }
 
+            // Special case: highlighted player inside a vehicle -> draw at fixed screen position
+            // Center X, one LineH margin from top
+            bFixedPosition = False;
+            if (bIsHighlighted && V != None && bHasDriver)
+            {
+                bFixedPosition = True;
+                FixedX = C.ClipX * 0.5;
+                FixedY = LineH; // one line margin from top
+            }
+
             // Draw based on type - with screen bounds check to prevent wrapping
             if (NumLines == 3)
             {
                 // 3 lines: Name / HP / Shield
                 PlateText = DisplayName;
                 C.StrLen(PlateText, XL, YL);
-                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                if (bFixedPosition)
+                {
+                    DrawLine(C, FixedX - XL * 0.5, FixedY, PlateText, TeamColor);
+                }
+                else if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                {
                     DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 3.0 * LineH, PlateText, TeamColor);
+                }
 
                 PlateText = "HP [" $ P.Health $ "]";
                 C.StrLen(PlateText, XL, YL);
-                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                if (bFixedPosition)
+                {
+                    DrawLine(C, FixedX - XL * 0.5, FixedY + LineH, PlateText, TeamColor);
+                }
+                else if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                {
                     DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
+                }
 
                 PlateText = "Shield [" $ int(P.ShieldStrength) $ "]";
                 C.StrLen(PlateText, XL, YL);
-                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                if (bFixedPosition)
+                {
+                    DrawLine(C, FixedX - XL * 0.5, FixedY + 2.0 * LineH, PlateText, TeamColor);
+                }
+                else if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                {
                     DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
+                }
             }
             else
             {
                 // 2 lines: Sentry/VehicleName / HP [X/X]
                 PlateText = DisplayName;
                 C.StrLen(PlateText, XL, YL);
-                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                if (bFixedPosition)
+                {
+                    DrawLine(C, FixedX - XL * 0.5, FixedY, PlateText, TeamColor);
+                }
+                else if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                {
                     DrawLine(C, Screen.X - XL * 0.5, Screen.Y - 2.0 * LineH, PlateText, TeamColor);
+                }
 
                 PlateText = "HP [" $ P.Health $ "/" $ int(P.HealthMax) $ "]";
                 C.StrLen(PlateText, XL, YL);
-                if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                if (bFixedPosition)
+                {
+                    DrawLine(C, FixedX - XL * 0.5, FixedY + LineH, PlateText, TeamColor);
+                }
+                else if (Screen.X - XL * 0.5 >= 0.0 && Screen.X + XL * 0.5 <= C.ClipX)
+                {
                     DrawLine(C, Screen.X - XL * 0.5, Screen.Y - LineH, PlateText, TeamColor);
+                }
             }
         }
     }
