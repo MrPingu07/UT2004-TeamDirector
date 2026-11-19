@@ -13,7 +13,13 @@ Director**, with:
 - third-person locked camera on living teammates, auto-cycling after 1 s;
 - wheel feed cycling and 120–1500 unit zoom;
 - Jump-heal and nine configurable transmat abilities;
-- client-side `Interaction` hotbar, controls and friendly nameplates.
+- a three-page hotbar (Personal / Machinery / All), Q/E cycling and Crouch;
+- client-side `Interaction` hotbar, controls and friendly nameplates;
+- a temporary `DirectorHUD` that draws the score, clock and typewriter feed and
+  suppresses the stock vehicle/beacon text;
+- a server-authored broadcast feed replicated to each Director, with live
+  match tokens and dynamic `$RANDOM<min>_<max>` values;
+- combatant sentinel beacons with line-of-sight checks.
 
 Original specification: `prompt.txt`.
 
@@ -23,6 +29,8 @@ Original specification: `prompt.txt`.
 |---|---|
 | `source/MutTechDirector/Classes/` | canonical UnrealScript source |
 | `install/MutTechDirector.int` | mutator metadata/localization |
+| `install/MutTechDirector.ini` | shipped broadcast-feed source |
+| `docs/BROADCASTING.md` | feed tokens, ini format and troubleshooting |
 | `tools/build.sh` | safe sync + compile + install |
 | `prebuilt/System/` | compiled release copies |
 | `docs/` | philosophy, findings, approach, roadmap |
@@ -60,15 +68,20 @@ The build script handles this correctly.
 
 ## Current verification state
 
-- `UCC.exe make`: **0 errors, 0 warnings**.
+- `UCC.exe make`: **0 errors, 5 known warnings** (pre-existing `DirectorHUD`
+  unknown default properties: `bShowScores`, `bShowStats`, `bShowCrosshair`,
+  `bShowRadar`, `bShowVehicleNames` — these belong to stock `HudBase` but are
+  not visible to the compiler in this package setup; they do not affect the
+  compiled package).
 - `UCC.exe exportcache MutTechDirector.u`: successful.
 - Dedicated server smoke test on `DM-Rankin?game=XGame.xTeamGame` with the
   mutator: clean load, no UnrealScript runtime errors.
 - `UT2004.ini` restored after build (zero `EditPackages=MutTechDirector`
   entries).
 - Artifacts present in `prebuilt/System/`.
-- **Not yet done:** live multi-client playtest of input/camera/HUD and all
-  abilities in CTF/ONS/AS/BR/DOM.
+- In-game iterations tested by the maintainer: sentinel ground height, HUD
+  placement, counter data, nameplate colours, feed layout, hotbar paging and
+  the entry flow.
 
 ## Design invariants (do not break)
 
@@ -85,15 +98,26 @@ The build script handles this correctly.
 
 ## Class map
 
-- `MutTechDirector.uc` — mutator, enter/exit, abilities, placement, FX.
+- `MutTechDirector.uc` — mutator, enter/exit, abilities, placement, FX,
+  replicated `TeamTurrets[16]`.
 - `DirectorReplicationInfo.uc` — replicated state, cooldowns, RPCs, heal,
-  berserk timer, auto-cycle, Interaction attach.
+  berserk timer, auto-cycle, Interaction attach, HUD swap RPCs, feed
+  replication (`CopyFeedMessages`).
 - `DirectorInteraction.uc` — raw input, camera zoom, hotbar/cheatsheet/
   TeamMates counter/nameplates, native beacon suppression.
+- `DirectorHUD.uc` — booth-only HUD: typewriter banner, team score, match
+  clock; suppresses native vehicle/beacon text.
+- `DirectorFeed.uc` — config-backed message array, token expansion, dynamic
+  `$RANDOM<min>_<max>` parser.
 - `DirectorBindKeyMessage.uc` — invisible LocalMessage whose client-side
   `ClientReceive` binds B -> `mutate director` (no PlayerController subclass).
-- `MutTechDirectorConfig.uc` — Configure Mutators submenu for the cooldowns.
+- `MutTechDirectorConfig.uc` — Configure Mutators submenu for the cooldowns
+  and Nanite heal rate.
 - `DirectorRules.uc` — fallback `FindPlayerStart`.
+- `DirectorSentinel.uc` — walk-through sentinel turret (slot 2).
+- `DirectorTurretBeaconInteraction.uc` — combatant LOS-checked sentinel beacons.
+- `DirectorTurretBeaconMessage.uc` — attaches/reuses combatant beacon interaction.
+- `DirectorNotify.uc` / `DirectorNotifyText.uc` — top-of-screen booth notifications.
 
 ## Key implementation facts
 
@@ -286,7 +310,10 @@ which builds the wrapper on the owning client and renders the same top-of-screen
 - **Package hash:** `768c3af7247be7bb37acfacda4a7942e2f60449edd4f3f0b7f18ee9f1a0f2db2`
 - **Installed:** `/home/jdmr/Juegos/UT2004/System/MutTechDirector.u`, `.ucl`, `.int`
 - **UT2004.ini:** Clean (no `EditPackages=MutTechDirector`)
-- **Warnings:** None (0 errors, 0 warnings). `FindClearSpot` dead-code / unreferenced-local warnings removed with the algorithm rewrite.
+- **Warnings:** 5 known pre-existing warnings in `DirectorHUD` (unknown default
+  properties `bShowScores`, `bShowStats`, `bShowCrosshair`, `bShowRadar`,
+  `bShowVehicleNames` from stock `HudBase` — not visible to compiler in this
+  package setup; they do not affect the compiled package).
 
 ## Source hashes at last build
 

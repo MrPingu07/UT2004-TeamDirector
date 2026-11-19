@@ -23,7 +23,8 @@ INSTALL
 
 2. Start the game and open Instant Action or Host Game.
 3. Add "Tournament Technical Director" in the Mutators list.
-4. Optional: click "Configure Mutators" to tune the nine cooldowns.
+4. Optional: click "Configure Mutators" to tune the nine cooldowns and the
+   Nanite heal rate.
 5. In game, press B to enter the booth (5 second delay) or leave instantly.
 
 If you only join other people's servers, MutTechDirector.ini is optional: the
@@ -48,6 +49,21 @@ CONTROLS
     Crouch (C or Ctrl)   Return to the Pages picker
     H                    Show/hide the cheatsheet; the H hint stays visible
 
+Jump healing works on every page, even while the Pages picker is open.
+
+The booth opens on the Pages picker by default:
+
+    [1] Personal         Original slots 1, 3, 4, 5, 9 -> keys 1-5
+    [2] Machinery        Original slots 2, 6, 7, 8 -> keys 1-4
+    [3] All              The full original 1-9 list
+
+Q and E cycle Personal -> Machinery -> All and wrap in both directions.
+Crouch returns to the picker from any page. Every picker/page also shows
+"[Crouch] Back | [Q/E] Cycle pages" unless H has hidden the cheatsheet.
+
+Pressing H hides every cheatsheet line except "[H] Show controls". Press H
+again to restore the list. Re-entering the booth restores it automatically.
+
 
 TRANSMAT SLOTS
 --------------
@@ -63,20 +79,26 @@ TRANSMAT SLOTS
     9  Emergency Recall
 
 All slots default to a 1.0 second cooldown and are configurable from
-Configure Mutators.
+Configure Mutators. The Nanite Med-Surge defaults to 2 HP/sec and is
+configurable there too (0-199 HP/sec).
 
 
-TEAM SENTINEL BEACONS
----------------------
+HUD AND SENTINEL BEACONS
+------------------------
 
-Teammates see two team-coloured lines above friendly sentinels:
+While the booth is open, the stock HUD is swapped for a Director HUD. It draws
+a clean broadcast frame, the team score and match clock, and the typewriter
+feed banner at the bottom. The original HUD returns when you leave.
 
-    Sentinel(n)
-    HP [current/max]
+The top-left hotbar shows the Pages picker or the selected page, with live
+[READY] / [Ns] cooldown states. The top-right cheatsheet lists one control per
+line. The bottom-right TeamMates / Alive / Dead counter is server-authoritative
+and includes bots, but not the Director.
 
-Combatants need line of sight to the sentinel. The Director does not draw a
-custom beacon; while spectating, the stock engine displays the sentinel's
-native name instead.
+Friendly fighters, driven vehicles and deployed sentries are labelled through
+walls: three lines for players (Name / HP / Shield), two lines for sentries
+(Sentry / HP [current/max]). Field players also see friendly sentry beacons as
+two team-coloured lines, but only with clear line of sight.
 
 Emergency Recall first tries a distinct landing spot for every living
 teammate. If the team anchor cannot fit everyone, the whole team is moved to
@@ -92,7 +114,7 @@ FEED MESSAGES (TYPEWRITER BANNER)
 The bottom banner types random messages from a config array. The **server or
 host** reads MutTechDirector.ini and sends its message list to each Director's
 client, so joining players do not need the file. The copy shipped with this
-archive already contains the tournament feed.
+archive contains 155 tournament-feed messages.
 
 To customize messages, edit the [MutTechDirector.DirectorFeed] section of
 MutTechDirector.ini on the server/host:
@@ -115,12 +137,14 @@ and match-state rules are documented in docs/BROADCASTING.md.
 
 Message text is uppercased automatically, so it can be written in normal
 sentence case. Token values are uppercased too: player names, server names,
-map titles and team names all render in caps.
+map titles and team names all render in caps. Messages are never filtered by
+width.
 
 The HUD runs on the client, but the message list is replicated from the
 server. A client-local MutTechDirector.ini is ignored during a networked match
 when the server provides a list. For standalone/Instant Action, the local file
 is used as usual.
+
 
 TROUBLESHOOTING
 ---------------
@@ -132,6 +156,18 @@ B does nothing:
 The mutator does not appear:
     Confirm the three System files are present and that this is a team
     gametype (TDM, CTF, ONS, DOM, Bombing Run, Assault, etc.).
+
+The hotbar starts on a page list:
+    That is the default. Press 1, 2 or 3 to choose a page, or Q/E to cycle.
+    Crouch returns to the picker.
+
+The cheatsheet vanished:
+    Press H. The "[H] Show controls" reminder is intentionally left visible.
+
+The banner shows the two compiled defaults:
+    The server/host did not read MutTechDirector.ini. Confirm the
+    [MutTechDirector.DirectorFeed] section exists and uses repeated
+    "Messages=" keys, then restart the server.
 
 Emergency Recall says no safe destination:
     The team anchor is full and the gametype fallback is unavailable. In DOM

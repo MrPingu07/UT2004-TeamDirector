@@ -70,6 +70,9 @@ for ln in lines:
     p = re.match(r'^(\s*EditPackages\w*)(\s*=\s*)(\S+)\s*$', ln, re.I)
     if p:
         name = p.group(3).strip()
+        # Skip third-party packages that may have compilation errors (e.g., GTAThirdPerson)
+        if name == "GTAThirdPerson":
+            continue
         if name.lower() in seen:
             continue
         seen.add(name.lower())

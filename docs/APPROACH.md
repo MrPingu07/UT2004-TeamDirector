@@ -11,8 +11,9 @@
  │   • UseAbility -> ammo, sentinel, health, shield, berserk,   │
  │     vehicles, team recall                                    │
  │   • placement traces + native FX                             │
- │   • Cooldown1..9 config defaults (Configure Mutators)        │
+ │   • Cooldown1..9 + NaniteHealRate config defaults (Configure Mutators) │
  │   • ModifyPlayer -> sends DirectorBindKeyMessage             │
+ │   • Replicates TeamTurrets[16] for beacon display            │
  │                                                              │
  │ DirectorReplicationInfo (ReplicationInfo, one per director)  │
  │   • bBoothPending, EntryTimeLeft, bDirectorActive            │
@@ -20,30 +21,44 @@
  │   • Cooldown1..9 + replicated MaxCooldowns[9] (ticked)       │
  │   • TeamAlive / TeamDead (0.5 s roster recount)              │
  │   • bHealing, heal accumulator, berserk timer                │
+ │   • FeedMessages[256] + FeedMessageCount (server-authoritative feed) │
  │   • server RPC implementations + entry countdown             │
+ │   • HUD swap RPCs: ClientActivateBooth / ClientCloseBooth    │
  └───────────────────────────┬──────────────────────────────────┘
-                             │ owner-only replication
-                             ▼
-                      CLIENT (owner)
+                              │ owner-only replication
+                              ▼
+                       CLIENT (owner)
  ┌──────────────────────────────────────────────────────────────┐
  │ DirectorReplicationInfo (replicated copy)                    │
  │   • attaches DirectorInteraction on PostBeginPlay /          │
  │     PostNetBeginPlay                                         │
+ │   • swaps HUD to DirectorHUD on ClientActivateBooth          │
+ │   • restores original HUD on ClientCloseBooth                │
+ │                                                              │
+ │ DirectorHUD (XInterface.HudBase)                             │
+ │   • suppresses native vehicle names, team beacons, crosshair │
+ │   • draws broadcast banner (logo, score, clock, typewriter)  │
  │                                                              │
  │ DirectorInteraction (Engine.Interaction)                     │
  │   • raw key/mouse capture -> server RPCs                     │
  │   • CameraDist zoom                                          │
  │   • plain-text PostRender telemetry, TeamMates counter,      │
- │     three-line friendly nameplates                           │
+ │     three-line friendly nameplates, sentinel beacons         │
  │                                                              │
  │ DirectorBindKeyMessage (LocalMessage)                        │
  │   • ClientReceive -> set Input B mutate director             │
+ │   • sent on every spawn via ModifyPlayer                     │
  └──────────────────────────────────────────────────────────────┘
 ```
 
 `DirectorRules` sits beside the mutator in the `GameRules` chain and only
 provides a fallback `FindPlayerStart()`. `MutTechDirectorConfig` is a
 `GUIPage` opened by the mutator list's **Configure Mutators** button.
+`DirectorTurretBeaconInteraction` / `DirectorTurretBeaconMessage` provide
+combatant-only sentinel beacons with line-of-sight checks. `DirectorNotify` /
+`DirectorNotifyText` handle top-of-screen booth notifications.
+
+---
 
 ## 2. Class responsibilities
 
@@ -61,8 +76,9 @@ The only class allowed to change the world or a pawn. It owns:
 - home-anchor lookup for recall;
 - clearance traces;
 - native deployment effects;
-- the `config(User)` cooldown defaults `Cooldown1..9` edited by
-  `MutTechDirectorConfig`;
+- the `config(User)` cooldown defaults `Cooldown1..9` and `NaniteHealRate`
+  edited by `MutTechDirectorConfig`;
+- the replicated `TeamTurrets[16]` array for beacon display;
 - `ModifyPlayer()` shipping the invisible `DirectorBindKeyMessage` to every
   spawn.
 
@@ -82,19 +98,44 @@ The replicated per-player record and the server-to-client bridge. It owns:
 - berserk pawn and expiry timer;
 - auto-cycle timing after a feed loss;
 - client Interaction attach/detach;
+- server feed replication: `CopyFeedMessages()` reads the mutator's
+  `DirectorFeed` config array and replicates `FeedMessages[256]` +
+  `FeedMessageCount` to the Director's client;
 - `ServerCycleTarget`, `ServerSetHealing`, `ServerUseAbility`,
   `ServerLeaveDirector` RPCs;
 - `ClientSwitchSound` RPC;
+- HUD swap RPCs: `ClientActivateBooth` (spawns `DirectorHUD`, preserves
+  scoreboard) and `ClientCloseBooth` (restores original HUD and scoreboard);
 - HUD helper `GetFriendlyPawns()`.
 
 It deliberately calls back into `MutTechDirector` for abilities instead of
 duplicating spawn logic.
 
+### `DirectorHUD.uc`
+
+A purpose-built booth HUD that replaces the stock HUD while the Director is
+in the booth. It draws:
+
+- A clean broadcast frame: full-width dark band with team-coloured stripes,
+  stock `LMSLogoSmall` "U" logo at left.
+- Team score counter at top centre (red–blue, 2× `MedFont`), hidden during F1.
+- Match clock in white above the score.
+- A centred typewriter feed at normal `MedFont` size inside the banner.
+  22-second cycle: flicker, blink, type, blink, hold, flicker, blink, delete,
+  blink, rest. New message chosen at cycle end or after a >0.5 s drawing gap.
+  Tokens expanded once per message via `DirectorFeed.ExpandTokens()`.
+- Suppresses native vehicle name drawing (`DrawVehicleName`), native team
+  beacon drawing (`DrawCustomBeacon`), crosshair (`DrawCrosshair`), and stock
+  message text (`DrawMessage`).
+- Calls `Super.DrawHud()` to preserve vanilla HUD elements (flag/score
+  counters, F1 match summary, chat feed). Custom telemetry (hotbar,
+  cheatsheet, counter, nameplates) is drawn by `DirectorInteraction.PostRender`.
+
 ### `DirectorInteraction.uc`
 
 A client-only `Engine.Interaction` with four jobs:
 
-1. **Input**: wheel, `1`–`9`, Space, left/right mouse.
+1. **Input**: wheel, `1`–`9`, Space, left/right mouse, `Q`/`E`, `H`, Crouch.
 2. **Camera**: maintain `ZoomDistance` and write `PC.CameraDist` each tick.
 3. **Telemetry**: draw the top-left hotbar, top-right controls, bottom-right
    `TeamMates` counter and the three-line friendly nameplates.
@@ -118,11 +159,11 @@ GTAThirdPerson stay compatible. It draws nothing (`GetString` returns `""`,
 
 A `GUIPage` reached through
 `ConfigMenuClassName="MutTechDirector.MutTechDirectorConfig"`. Nine
-`moEditBox`es (slots 1–9) plus OK and Reset; values are clamped to 0–120 s,
-written to `class'MutTechDirector'.default` and saved with
+`moEditBox`es (slots 1–9) plus one for `NaniteHealRate`, plus OK and Reset;
+values are clamped to 0–120 s (cooldowns) and 0–199 (heal rate), written to
+`class'MutTechDirector'.default` and saved with
 `StaticSaveConfig()`. Changes apply to the next match (the RI copies them at
 countdown start).
-
 
 ### `DirectorRules.uc`
 
@@ -134,6 +175,17 @@ calls `Super.FindPlayerStart()` first, then tries:
 3. any enabled `PlayerStart`.
 
 Returning `None` remains safe: the stock chain continues unchanged.
+
+### `DirectorTurretBeaconInteraction.uc` / `DirectorTurretBeaconMessage.uc`
+
+Combatant-only line-of-sight sentinel beacons. The message attaches the
+interaction to non-Director team members when a Director is active. The
+interaction draws two centred lines (`Sentry` / `HP [X/X]`) only when the
+turret is in front of the camera, on screen, and unobstructed by world
+geometry or actors. The Director is excluded (they see all beacons without LOS
+check via `DirectorInteraction.PostRender`).
+
+---
 
 ## 3. Entering the booth
 
@@ -155,7 +207,8 @@ immediately (so the client can already receive popups) and calls
 - `bBoothPending = True`, `bDirectorActive = False` — **the player keeps
   playing normally**;
 - `EntryTimeLeft = 5.0`, `LastEntrySecond = 5`;
-- all nine configured cooldowns are copied into `MaxCooldowns[9]`;
+- all nine configured cooldowns and `NaniteHealRate` are copied into
+  `MaxCooldowns[9]` and `HealRate`;
 - `UpdateTeamCounts()` seeds the counter;
 - the first `Entering Technical Director booth in 5...` popup is sent.
 
@@ -172,7 +225,8 @@ immediately (so the client can already receive popups) and calls
 
 1. Leave a vehicle first (`KDriverLeave(True)`) if entering from one.
 2. `RI.ActivateBooth()` — clears `bBoothPending`, sets `bDirectorActive`,
-   resets the nine cooldowns to their configured maxima.
+   resets the nine cooldowns to their configured maxima, sends
+   `ClientActivateBooth()`.
 3. **Keep roster identity**:
    - set `bOutOfLives = True` (hidden from respawn systems);
    - clear `bIsSpectator`;
@@ -189,6 +243,8 @@ immediately (so the client can already receive popups) and calls
 The replication actor is spawned at the start of the countdown so the client
 has the Interaction available the moment the booth opens.
 
+---
+
 ## 4. Leaving the booth
 
 `ExitDirectorMode(RI)`:
@@ -200,7 +256,8 @@ has the Interaction available the moment the booth opens.
    - `CameraDist = Default.CameraDist`;
    - view target self.
 3. `RI.Destroy()`; client `Destroyed()` calls `DirectorInteraction.Cleanup()`,
-   which removes the Interaction and restores `CameraDistRange`.
+   which removes the Interaction and restores `CameraDistRange` and native
+   beacon ranges.
 4. Remove the RI from `Directors`.
 5. Clear `bOutOfLives`.
 6. `Level.Game.RestartPlayer(PC)`.
@@ -227,10 +284,12 @@ resets can hand them a fresh pawn while the booth is still active.
 2. `Destroy()` it (no kill credit, no scoreboard death);
 3. return the controller to `Spectating`;
 4. re-assert `bBehindView` / `ClientSetBehindView`;
-4. re-apply the current feed target.
+5. re-apply the current feed target.
 
 This keeps the booth stable across round transitions without touching the
 gametype's respawn code.
+
+---
 
 ## 5. Feed selection and cycling
 
@@ -255,6 +314,8 @@ direction (`-1`/`+1`).
 
 `SetTarget()` sets both the server and client view targets and behind-view
 state.
+
+---
 
 ## 6. Camera and zoom
 
@@ -284,18 +345,81 @@ Raw input mapping:
 | `IK_LeftMouse` press/release | local `bZoomIn` |
 | `IK_RightMouse` press/release | local `bZoomOut` |
 | `IK_MouseW` axis | wheel fallback with a 0.15 s debounce |
+| `IK_Q` | `CycleHotbarPage(-1)` |
+| `IK_E` | `CycleHotbarPage(1)` |
+| `IK_H` | toggle `bShowCheatsheet` |
+| `IK_C` / `IK_Ctrl` | `HotbarBack()` |
 
 The Interaction consumes these events (`return True`) only while the booth is
 active. Other keys fall through to the game/console.
 
-## 7. Cooldowns
+---
+
+## 7. Hotbar pages
+
+The hotbar has three modes, managed by `HotbarMode`:
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `HOTBAR_ALL` | 0 | Full 1–9 list |
+| `HOTBAR_PAGE_PICK` | 1 | Page picker (default on entry) |
+| `HOTBAR_PERSONAL` | 2 | Personal page (slots 1,3,4,5,9 → keys 1–5) |
+| `HOTBAR_MACHINERY` | 3 | Machinery page (slots 2,6,7,8 → keys 1–4) |
+
+- **Default on booth entry:** `HOTBAR_PAGE_PICK` (shows `[1] Personal`,
+  `[2] Machinery`, `[3] All`).
+- **`Q` / `E`**: cycle Personal → Machinery → All (`Q` reverses), wrapping in
+  both directions. From the picker, `Q` opens All and `E` opens Personal.
+- **Number keys in picker**: `1` opens Personal, `2` opens Machinery, `3`
+  opens All.
+- **Crouch** (`C` or `Ctrl`): returns to the page picker from any page.
+- **Jump healing** is handled before hotbar dispatch, so it works in every
+  mode.
+- **Cheatsheet footer** `[Crouch] Back | [Q/E] Cycle pages` appears on every
+  picker/page unless `H` hides the cheatsheet.
+
+`ResetHotbar()` (called on booth activation and re-attach) sets
+`HotbarMode = HOTBAR_PAGE_PICK` and `bShowCheatsheet = True`.
+
+---
+
+## 8. Cheatsheet
+
+The top-right cheatsheet is drawn one control per line, no separators.
+When visible (`bShowCheatsheet == True`):
+
+```text
+[Wheel] Cycle Fighter Feed
+[Hold Fire/AltFire] Zoom Cam
+[Hold Jump] Heal
+[1-9] Transmat Drop
+[B] Toggle Booth
+[Q/E] Cycle Pages
+[1/2/3] Select Page
+[Crouch] Back
+[H] Hide controls
+```
+
+When hidden (`bShowCheatsheet == False`), only the reminder remains:
+
+```text
+[H] Show controls
+```
+
+Pressing `H` toggles. The cheatsheet starts visible each time the booth opens
+(`ResetHotbar()`).
+
+---
+
+## 9. Cooldowns
 
 All values are floats in seconds on `DirectorReplicationInfo`. The **ceiling**
 per slot is configurable per player/server through **Configure Mutators**
 (`MutTechDirector.Cooldown1..9`, `var() config float`, each defaulting to
-`1.0` s). The mutator copies them into the replicated `MaxCooldowns[9]` when
-the entry countdown starts, so both the authority and the HUD client agree on
-the values.
+`1.0` s). The Nanite heal rate (`NaniteHealRate`) is also configurable,
+defaulting to `2.0` HP/sec. The mutator copies them into the replicated
+`MaxCooldowns[9]` and `HealRate` when the entry countdown starts, so both the
+authority and the HUD client agree on the values.
 
 | Slot | Ability | Default |
 |---|---|---|
@@ -308,10 +432,12 @@ the values.
 | 7 | Light Vehicle Transmat | 1.0 s |
 | 8 | Heavy Asset Drop | 1.0 s |
 | 9 | Emergency Recall | 1.0 s |
+| Hold Jump | Nanite Med-Surge | 2.0 HP/sec |
 
 `GetMaxCooldown(Slot)` returns `FMax(0.0, MaxCooldowns[Slot - 1])`, so `0`
-means "always ready". The config page clamps edits to `0..120` s and saves
-them with `StaticSaveConfig()`; new values apply from the next match.
+means "always ready". The config page clamps edits to `0..120` s and `0..199`
+(heal rate), saves them with `StaticSaveConfig()`; new values apply from the
+next match.
 
 `Tick()` decrements each positive cooldown by `DeltaTime` only when
 `Role == ROLE_Authority && bDirectorActive`. The client does not simulate
@@ -322,7 +448,9 @@ cooldowns; it reads the replicated values and renders either `[READY]` or
 success it calls `StartCooldown()`. On a rejected target or failed placement it
 returns early, so the cooldown is not consumed.
 
-## 8. Ability details
+---
+
+## 10. Ability details
 
 ### Slot 1 — Ammunition Requisition
 
@@ -341,6 +469,8 @@ returns early, so the cooldown is not consumed.
 - Spawn `UT2k4Assault.ASVehicle_Sentinel_Floor`.
 - `SetTeamNum(Team)`, `bTeamLocked = True`.
 - Native deployment FX.
+- OnTurretChange() refreshes the replicated `TeamTurrets` array and attaches
+  combatant beacon interactions.
 
 ### Slot 3 — Painkillers
 
@@ -429,7 +559,9 @@ The spacing and clearance logic is specifically there to prevent telefrags:
 the destination is checked against every pawn's collision radius before the
 move.
 
-## 9. Telemetry HUD
+---
+
+## 11. Telemetry HUD
 
 `DirectorInteraction.PostRender(Canvas C)` draws only while
 `RI.bDirectorActive`:
@@ -438,7 +570,6 @@ move.
 2. **Top-left hotbar** (`X = 24`, `Y = 24`):
    - header `[TECHNICAL DIRECTOR LOGISTICS]`;
    - Nanite row with `[HOLD]` / `[BEAM]`;
-   - full mode: slots 1–9 with names and status;
    - page picker (default): `[1] Personal`, `[2] Machinery`, `[3] All`,
      plus `[Crouch] Back | [Q/E] Cycle pages`;
    - Personal page: original 1, 3, 4, 5, 9 as visible 1–5;
@@ -478,11 +609,14 @@ move.
      `vector(CamRot)`;
    - `WorldToScreen`; discard off-canvas;
    - draw three **centred** lines above the head: `Name`, `HP [n]`,
-     `Shield [n]`;
+     `Shield [n]` for players and vehicle drivers;
+   - draw two **centred** lines for sentries/empty vehicles: `Sentry` /
+     `HP [current/max]`;
    - team colours: red `rgb(255,0,0)`, blue `rgb(51,102,255)`; the fighter on
      the feed uses the brighter selected variants `rgb(255,153,51)` and
      `rgb(51,204,255)`;
    - no `FastTrace`: the brief explicitly asks for through-wall visibility.
+   - empty non-sentry vehicles are not labelled.
 
 Native floating team beacons are suppressed while the booth is open: the
 Interaction saves `TeamBeaconMaxDist` / `TeamBeaconPlayerInfoMaxDist`, sets
@@ -490,14 +624,46 @@ both to `0`, and restores them in `Cleanup()`. Stock beacons are range-gated
 (6000 / 1800 units), carry no HP/shield, and cannot be made always-visible from
 script, so the custom plates replace them.
 
-No stock HUD class is overridden. Removing the RI removes the Interaction.
+No stock HUD class is overridden permanently. The booth temporarily swaps to
+`DirectorHUD` and restores the original on exit. Removing the RI removes the
+Interaction.
 
-## 10. Networking and failure handling
+---
+
+## 12. Sentinel beacons for field players
+
+`DirectorTurretBeaconInteraction` draws two centred, team-coloured lines above
+friendly sentries for combatants:
+
+```text
+Sentry
+HP [current/max]
+```
+
+Requirements:
+- Turret is in front of the camera (dot product > 0).
+- Turret projects on screen.
+- Line of sight from camera to turret (world geometry + actors). The trace
+  passes if it hits the turret itself, its base or its swivel.
+
+The Director does **not** use this interaction; `DirectorInteraction.PostRender`
+draws all friendly sentries without the LOS gate.
+
+`DirectorTurretBeaconMessage` is a `LocalMessage` sent to non-Director team
+members on spawn (`ModifyPlayer`), on turret roster changes
+(`OnTurretChange`/`RefreshTurretList`), and on Director exit. It attaches or
+reuses (dedupes) the interaction. The interaction skips drawing while the
+viewer is in `Spectating` state (i.e., in the booth).
+
+---
+
+## 13. Networking and failure handling
 
 - The RI is owner-only (`bOnlyRelevantToOwner=True`) and non-always-relevant.
 - The owning client gets `DirectorTeam`, `bDirectorActive`, `bHealing`,
   `CurrentTarget`, the nine cooldowns, `MaxCooldowns[9]`, `TeamAlive`,
-  `TeamDead`, `bBoothPending`, `EntryTimeLeft` and `ClientSwitchSound`.
+  `TeamDead`, `bBoothPending`, `EntryTimeLeft`, `FeedMessages[256]`,
+  `FeedMessageCount`, `ClientSwitchSound`, `HealRate`, and HUD swap RPCs.
 - Server RPCs are declared in the `Role < ROLE_Authority` block and every
   implementation re-checks `Role`, `bDirectorActive` and references.
 - Interaction attach is retried up to 20 times at 0.25 s if the client's
@@ -511,7 +677,39 @@ No stock HUD class is overridden. Removing the RI removes the Interaction.
   `LocalMessage.ClientReceive` hook therefore always reaches the owning client
   (host or remote) without any custom `PlayerController` subclass.
 
-## 11. Build pipeline
+---
+
+## 14. Broadcast feed replication
+
+The server is the source of truth for the broadcast-feed message list.
+
+1. **Config read**: on the server/host, `MutTechDirector.ini` section
+   `[MutTechDirector.DirectorFeed]` is read into `class'DirectorFeed'.default.Messages`.
+2. **Snapshot**: when a Director enters the booth (`BeginEntryCountdown`),
+   `DirectorReplicationInfo.CopyFeedMessages()` copies the array into the
+   fixed-size replicated `FeedMessages[256]` and `FeedMessageCount`.
+3. **Replication**: the array is replicated owner-only to the Director's
+   client.
+4. **Client selection**: `DirectorHUD.PickMessage()` prefers the replicated
+   feed; if unavailable (standalone/instant action), it falls back to the local
+   `DirectorFeed` defaults; if that is also empty, it uses `TECHNICAL DIRECTOR
+   MODE`.
+5. **Shuffle bag**: `DirectorHUD` maintains a `FeedBag` array of indices.
+   When `FeedBagSize` (the source message count) changes, the bag is reset.
+   Every configured message is shown once before any repeats.
+6. **Token expansion**: `DirectorFeed.ExpandTokens(Msg, PC)` runs on the
+   client, expanding tokens from replicated match state (`GRI`, `PRIArray`,
+   `Level.Title`, etc.). The template is uppercased before replacement; the
+   finished message is uppercased again so token values (player, server, map,
+   team names) also render in caps.
+7. **Dynamic random tokens**: `$RANDOM<min>_<max>[K|M]` parsed by
+   `ExpandRandomTokens()`, rolled once per message per client via `RollRange()`.
+   Results are formatted with dot thousands separators (`FormatNumber()`) —
+   e.g., `43.781`, never compact `43K`.
+
+---
+
+## 15. Build pipeline
 
 `tools/build.sh` exists because UCC is picky and the game install must remain
 usable:
@@ -527,12 +725,15 @@ usable:
   `Compile aborted due to errors`;
 - `exportcache` generates the `.ucl`;
 - `.int` is installed;
+- the shipped feed config `MutTechDirector.ini` is copied into `System/`;
 - `prebuilt/System/` receives the release artifact;
 - a trap restores the original INI on `EXIT`, `INT` and `TERM`.
 
 The script is idempotent and safe to rerun.
 
-## 12. Why this structure scales to other team gametypes
+---
+
+## 16. Why this structure scales to other team gametypes
 
 - Team membership comes from `PlayerReplicationInfo.Team`, not from a specific
   gametype class.
@@ -541,15 +742,18 @@ The script is idempotent and safe to rerun.
 - Recall anchors are discovered by class and team tag, not hard-coded map
   actors.
 - Exit uses `GameInfo.RestartPlayer()`, so custom spawn logic still runs.
-- The HUD is a generic `Interaction`, so no per-gametype HUD class is needed.
+- The HUD is a generic `Interaction` + temporary `DirectorHUD` swap, so no
+  per-gametype HUD class is needed.
 - Optional content is string-loaded, so missing packages degrade gracefully.
 
 The only hard requirement is `Level.Game.bTeamGame` and a real team assignment.
 
-## 13. Vehicle placement: the simple priority search
+---
 
-The new `FindClearSpot()` replaces the complex expanding-ring algorithm with a
-straightforward priority-based search:
+## 17. Vehicle placement: the simple priority search
+
+The `FindClearSpot()` / `TrySpawnSpot()` algorithm replaces the complex
+expanding-ring algorithm with a straightforward priority-based search:
 
 ```unrealscript
 function bool FindClearSpot(...)

@@ -47,33 +47,33 @@ so they stay live on each client.
 
 ```text
 install/MutTechDirector.ini                (server/host install)
-   │  copied into <UT2004>/System/ (tools/build.sh does this)
-   ▼
+    │  copied into <UT2004>/System/ (tools/build.sh does this)
+    ▼
 <UT2004>/System/MutTechDirector.ini        (server/host)
-   │
-   ▼
+    │
+    ▼
 class'DirectorFeed'.default.Messages       (server)
-   │  CopyFeedMessages() when the booth opens
-   ▼
+    │  CopyFeedMessages() when the booth opens
+    ▼
 DirectorReplicationInfo.FeedMessages[256]  ── reliable, owner-only ──► client
-                                                                        │
-                                                                        ▼
-                                                          PickMessage()
-                                                     shuffle bag, empty entries
-                                                                        │
-                                                                        ▼
-                                          DirectorFeed.ExpandTokens(Msg, PC)
-                                              live match state, client-side
-                                                                        │
-                                                                        ▼
-                                                CurrentMessage  (snapshot)
-                                                                        │
-                                                                        ▼
-                                                  typewriter ──► Canvas
+                                                                         │
+                                                                         ▼
+                                                           PickMessage()
+                                                      shuffle bag, empty entries
+                                                                         │
+                                                                         ▼
+                                           DirectorFeed.ExpandTokens(Msg, PC)
+                                               live match state, client-side
+                                                                         │
+                                                                         ▼
+                                                 CurrentMessage  (snapshot)
+                                                                         │
+                                                                         ▼
+                                                   typewriter ──► Canvas
 ```
 
 The list is capped at **256 messages**; entries beyond that are ignored. The
-current feed is 110 messages.
+current shipped feed has **155 messages**.
 
 ### 3.1 Config file and section
 
@@ -457,7 +457,7 @@ Expected; see §10.
 - **Localisation.** `Level.Title`, `GRI.GameName` and player names are printed
   as reported by the game; the feed does not translate or normalise them.
 - **256-message cap.** The replicated array is fixed at 256 entries. Extra
-  `Messages=` lines beyond that are dropped. The shipped feed has 110.
+  `Messages=` lines beyond that are dropped. The shipped feed has 155.
 - **Client-local ini is ignored when the server list arrives.** Editing your
   own `MutTechDirector.ini` on a client has no effect during a networked
   match; edit the server's copy instead. Standalone/Instant Action uses the

@@ -4,7 +4,7 @@
 
 | Area | Status |
 |---|---|
-| Compiles on UT2004 v3374 | Done — `0 errors, 0 warnings` |
+| Compiles on UT2004 v3374 | Done — `0 errors, 5 known warnings` |
 | `.u` / `.ucl` / `.int` produced | Done |
 | Server smoke test | Done — mutator loads on a dedicated server |
 | Team-game entry/exit | Implemented |
@@ -13,6 +13,7 @@
 | Pawn suppression and roster preservation | Implemented |
 | Cooldown reset/pause rule | Implemented |
 | Configurable cooldowns (Configure Mutators) | Implemented |
+| Configurable Nanite heal rate (Configure Mutators) | Implemented |
 | Automatic `B` bind for host and clients (default toggle key), no PC subclass | Implemented |
 | Locked third-person feed | Implemented |
 | Death auto-cycle with 1 s hold | Implemented |
@@ -24,11 +25,17 @@
 | Round-reset stray pawn suppression | Implemented |
 | Respawn-delay compatibility (`bOutOfLives`) | Implemented |
 | Top-left hotbar, top-right cheatsheet (24 px margins) | Implemented |
+| Three-page hotbar: Personal / Machinery / All with Q/E cycling and Crouch | Implemented |
+| H cheatsheet toggle with `[H] Show controls` reminder | Implemented |
 | Bottom-right `TeamMates` / `Alive` / `Dead` counter | Implemented |
 | Three-line custom nameplates + native beacon suppression | Implemented |
+| Sentinel beacons for field players (LOS-checked) + Director (no LOS) | Implemented |
 | GTAThirdPerson compatibility (no `PlayerController` replacement) | Implemented |
+| Temporary Director HUD swap with original restore on exit | Implemented |
+| Server-authoritative broadcast feed replicated to Director clients | Implemented |
+| Dynamic `$RANDOM<min>_<max>[K|M]` tokens with dot grouping | Implemented |
 | Build tooling with INI restore | Done |
-| Documentation | Done |
+| Documentation | In progress (this pass) |
 | Multi-client live playtest | Not yet performed |
 
 ## Known limitations
@@ -50,6 +57,12 @@
 6. **Cooldown modifications apply next match.** Editing them through Configure Mutators
    writes class defaults; a booth that is already open keeps the values copied
    at its entry countdown, and the change takes effect on the next match.
+7. **Switch Teams while Director is ignored until exit.** The booth suppresses
+   pawn respawn and team changes; switching teams via the in-game menu does not
+   take effect until the Director leaves the booth and `RestartPlayer()` runs.
+8. **HUD warnings.** The 5 pre-existing `DirectorHUD` default-property warnings
+   (`bShowScores`, `bShowStats`, `bShowCrosshair`, `bShowRadar`,
+   `bShowVehicleNames`) are known and accepted; they do not affect runtime.
 
 ## Near-term work
 
@@ -94,7 +107,7 @@
   - wheel and zoom on a real input stack;
   - feed auto-cycle timing after a death;
   - nameplate projection at range and through walls;
-  - sentinel beacons appear for combatants (LOS-checked) and the Director (no LOS gate) as `Sentinel(n)` / `HP [X/X]`, no Shield line;
+  - sentinel beacons appear for combatants (LOS-checked) and the Director (no LOS gate) as `Sentry` / `HP [X/X]`, no Shield line;
   - no duplicate/stacked beacon text on booth re-entry or respawn;
   - destroyed sentinels drop out of the beacon display;
   - the `TeamMates` counter with bots and with a partial roster;
@@ -171,7 +184,6 @@ verify roster count and respawn.
   sentinel/turret beacons, all nine abilities and roster counters behave the
   same as in stock DOM. Add a cDOM2 smoke test to the live playtest checklist.
 
-
 ## Non-goals
 
 - Subclassing every team gametype.
@@ -192,7 +204,7 @@ a8da70ba6db1b196143776b62ba2f2d1a50aa89fcef4c6683691fe4325a7c162  DirectorReplic
 f41efe9bc384e338c62d89957f0cb51c0e49642426328fc06f28b4c3937bed09  DirectorTurretBeaconInteraction.uc
 bd2c5e491e1f10da5a151b142b6621ea9184804a2d76088dcf270b4af1726171  DirectorTurretBeaconMessage.uc
 c7524efb89fec707e6b58b7c76eb80e90ea103ecbe9d5366579da063c1838732  MutTechDirectorConfig.uc
-28e573c447e64042aa8354691e598fdcd855abb7e8921e7d2eef6a8202ee01b5  MutTechDirector.uc
+28e553c447e64042aa8354691e598fdcd855abb7e8921e7d2eef6a8202ee01b5  MutTechDirector.uc
 ```
 
 Package hash at last build:
