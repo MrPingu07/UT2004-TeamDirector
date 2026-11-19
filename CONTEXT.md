@@ -274,7 +274,7 @@ always-visible from script, so the custom plates replace them entirely.
   machine, where it runs `set Input B mutate director` (after checking
   `KEYBINDING B`), exactly like the stock GUI writes binds.  This works for the
   host and joining clients, needs no `PlayerControllerClassName` override, and
-  therefore keeps controller-replacing mutators (GTAThirdPerson) fully
+  therefore keeps controller-replacing mutators (Ultimate Third Person) fully
   compatible.  A missed or manually overwritten bind self-heals on the next
   spawn.
 - **Mandatory 5 s entry delay, instant exit.**  `ToggleDirector()` spawns the

@@ -30,7 +30,7 @@
 | Bottom-right `TeamMates` / `Alive` / `Dead` counter | Implemented |
 | Three-line custom nameplates + native beacon suppression | Implemented |
 | Sentinel beacons for field players (LOS-checked) + Director (no LOS) | Implemented |
-| GTAThirdPerson compatibility (no `PlayerController` replacement) | Implemented |
+| Ultimate Third Person compatibility (no `PlayerController` replacement) | Implemented |
 | Temporary Director HUD swap with original restore on exit | Implemented |
 | Server-authoritative broadcast feed replicated to Director clients | Implemented |
 | Dynamic `$RANDOM<min>_<max>[K|M]` tokens with dot grouping | Implemented |

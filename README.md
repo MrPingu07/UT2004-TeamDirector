@@ -420,7 +420,7 @@ The 5 warnings are known and accepted; they do not affect the compiled package.
   of a package-load crash.
 - **No `PlayerController` subclass.** The automatic `B` bind rides on
   `LocalMessage.ClientReceive`, which runs on the owning machine. Mutators that
-  replace `PlayerControllerClass` (e.g. GTAThirdPerson) are therefore
+  replace `PlayerControllerClass` (e.g. Ultimate Third Person) are therefore
   unaffected.
 - **Booth HUD is temporary.** `DirectorHUD` is spawned only while the booth is
   active; the original HUD class and scoreboard class are restored on exit.

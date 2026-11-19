@@ -152,7 +152,7 @@ because `PlayerController.ReceiveLocalizedMessage` is a **reliable** RPC, and
 writes `set Input B mutate director` (after checking `KEYBINDING B`) exactly
 like the stock GUI. This gives every client the B bind with no
 `PlayerController` subclass, so controller-replacing mutators such as
-GTAThirdPerson stay compatible. It draws nothing (`GetString` returns `""`,
+Ultimate Third Person stay compatible. It draws nothing (`GetString` returns `""`,
 `GetLifeTime` returns `0`).
 
 ### `MutTechDirectorConfig.uc`

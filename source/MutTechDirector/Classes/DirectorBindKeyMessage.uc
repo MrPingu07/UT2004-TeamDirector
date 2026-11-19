@@ -9,7 +9,7 @@
 // MutTechDirector.ModifyPlayer() sends this message on every spawn, so each
 // client (and the host) binds B -> "mutate director" into its own input
 // config without replacing PlayerControllerClass and without touching any
-// other mutator's controller (GTAThirdPerson stays fully compatible).
+// other mutator's controller (Ultimate Third Person stays fully compatible).
 //
 // B is the default toggle key.  Older builds bound N, so any stale N binding
 // left over from those builds is cleared here before B is written.

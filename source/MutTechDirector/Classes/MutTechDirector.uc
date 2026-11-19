@@ -324,7 +324,7 @@ function DisableTestBeacons(PlayerController PC)
  * binds B -> "mutate director".  Repeating it per spawn is cheap and makes a
  * missed/overwritten bind self-heal.  LocalMessage.ClientReceive runs on the
  * client, so this needs no custom PlayerController class; other mutators that
- * own the controller (e.g. GTAThirdPerson) stay untouched.
+ * own the controller (e.g. Ultimate Third Person) stay untouched.
  */
 function ModifyPlayer(Pawn Other)
 {

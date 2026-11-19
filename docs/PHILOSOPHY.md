@@ -67,7 +67,7 @@ The automatic **B** bind is implemented with an invisible `LocalMessage` whose
 `ClientReceive` runs on the owning machine, triggered through the reliable
 `ReceiveLocalizedMessage` RPC. That choice is philosophical as much as
 technical: a universal mutator should not seize `PlayerControllerClass`.
-Subclassing the controller would collide with GTAThirdPerson and any other mod
+Subclassing the controller would collide with Ultimate Third Person and any other mod
 that already owns it. The message hook gets the same result — every client
 binds B on spawn — while leaving the stock controller chain untouched.
 

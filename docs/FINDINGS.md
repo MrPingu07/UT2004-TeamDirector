@@ -234,7 +234,7 @@ static function ClientReceive(PlayerController P, optional int Switch, ...)
 The server calls `PC.ReceiveLocalizedMessage(class'DirectorBindKeyMessage', 0)`
 and the client's static `ClientReceive` runs there. This is the mechanism used
 to install the automatic **B** bind without replacing `PlayerControllerClass`,
-which is what keeps GTAThirdPerson and other controller-owning mutators
+which is what keeps Ultimate Third Person and other controller-owning mutators
 compatible. `GetString()` returns `""` and `GetLifeTime()` returns `0`, so the
 message is never drawn.
 
@@ -294,7 +294,7 @@ master-server DNS failures) appears in this install regardless of the mutator.
 - No custom `HUD` subclass: the brief asks for an `Interaction`, and avoiding a
   HUD replacement keeps compatibility with every team gametype.
 - No `PlayerController` subclass: the B bind rides on a `LocalMessage`, so
-  controller-replacing mutators (GTAThirdPerson) are unaffected.
+  controller-replacing mutators (Ultimate Third Person) are unaffected.
 - No `BecomeSpectator()`: it would remove the player from the team roster and
   defeat the roster-count requirement.
 - No direct editing of `UT2004.ini` outside the build script's guarded
