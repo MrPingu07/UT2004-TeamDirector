@@ -9,6 +9,7 @@
 // have line-of-sight to the turret (world geometry + actor occlusion).
 //
 // Format: Sentinel(n\)HP [X/X] - team-colored, centered like player nameplates.
+// Beacon offset: 50 units above turret/player center.
 //=============================================================================
 class DirectorTurretBeaconInteraction extends Interaction;
 
@@ -50,7 +51,7 @@ simulated function bool HasLineOfSightToTurret(Canvas C, DirectorSentinel Turret
         return False;
 
     C.GetCameraLocation(CamLoc, CamRot);
-    TurretLoc = Turret.Location + vect(0, 0, 60); // Same head offset as nameplates
+    TurretLoc = Turret.Location + vect(0, 0, 50); // Same head offset as nameplates
 
     // Trace from camera to turret, checking world geometry and actors.
     // Zero extent for line trace. Returns None if clear, or the hit actor if blocked.
@@ -190,7 +191,7 @@ event PostRender(Canvas C)
             continue;
         }
 
-        TurretLoc = T.Location + vect(0, 0, 60);
+        TurretLoc = T.Location + vect(0, 0, 50);
 
         // Skip anything behind the camera
         if ((TurretLoc - CamLoc) Dot vector(CamRot) <= 0.0)
