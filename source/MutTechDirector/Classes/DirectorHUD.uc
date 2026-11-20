@@ -182,7 +182,7 @@ simulated function string PickMessage()
     }
 
     if (n == 0)
-        return class'DirectorFeed'.static.ExpandTokens("TECHNICAL DIRECTOR MODE", PlayerOwner);
+        return class'DirectorFeed'.static.ExpandTokens("TECHNICAL DIRECTOR MODE", None, false, Level);
 
     // A changed source (fallback -> replicated list) invalidates old indices.
     if (FeedBagSize != n)
@@ -214,10 +214,10 @@ simulated function string PickMessage()
         else
             Msg = class'DirectorFeed'.default.Messages[i];
         if (Msg != "")
-            return class'DirectorFeed'.static.ExpandTokens(Msg, PlayerOwner);
+            return class'DirectorFeed'.static.ExpandTokens(Msg, Level.Game.GameReplicationInfo, DirRI.bTeamGame, Level);
     }
 
-    return class'DirectorFeed'.static.ExpandTokens("TECHNICAL DIRECTOR MODE", PlayerOwner);
+    return class'DirectorFeed'.static.ExpandTokens("TECHNICAL DIRECTOR MODE", None, false, Level);
 }
 
 /**

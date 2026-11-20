@@ -15,9 +15,9 @@
 // Do not use Messages(0)=... here; that form is for static arrays and is
 // ignored by the dynamic-array config reader.
 //
-// All token expansion happens on the client, from data the client already
-// receives: LevelInfo, GameReplicationInfo and its PRI/Team arrays.  Nothing
-// here is authoritative and nothing is sent to the server.
+// All token expansion happens ONCE on the server (by RespawnDelayBroadcast)
+// and the finished string is replicated.  Tokens are viewer-agnostic:
+// $TOPTEAM* names the team of the global scoreboard leader (not "my team").
 //=============================================================================
 class DirectorFeed extends Object
     config(MutTechDirector);
@@ -41,20 +41,24 @@ const MAX_RANDOM        = 1000000;
 /**
  * Replace every supported token in Msg with its live value.
  *
+ * Viewer-agnostic: the broadcast is authored ONCE on the server and the
+ * resulting string is replicated to every client.  No token may depend on
+ * who is looking at it.  $TOPTEAM* therefore names the team of the overall
+ * scoreboard leader instead of "my team"; $LEADTEAM* stays the team with the
+ * higher total score.
+ *
  * The template is uppercased before matching, so token names are effectively
  * case-insensitive.  The finished message is uppercased again so inserted
  * values (player names, server/map/team names) also render in caps.
  * $TOPFRAGGERSCORE is expanded before $TOPFRAGGER because the shorter token
  * is a prefix of the longer one.
- *
- * This is called once per banner cycle by DirectorHUD.PickMessage(), so the
- * whole message is a snapshot: scores cannot change mid-typewriter.
  */
-static function string ExpandTokens(string Msg, PlayerController PC)
+static function string ExpandTokens(string Msg, GameReplicationInfo GRI,
+                                    bool bTeamGame, LevelInfo L)
 {
-    local GameReplicationInfo GRI;
     local PlayerReplicationInfo Top;
     local PlayerReplicationInfo TopTeam;
+    local int TopTeamIndex;
     local int LeadIndex;
 
     if (Msg == "")
@@ -66,12 +70,12 @@ static function string ExpandTokens(string Msg, PlayerController PC)
     // rendered in caps. Control/colour characters are left intact by Caps().
     Msg = Caps(Msg);
 
-    GRI = None;
-    if (PC != None)
-        GRI = PC.GameReplicationInfo;
-
     Top = FindTopPlayer(GRI, -1);
-    TopTeam = FindTopPlayer(GRI, GetDirectorTeam(PC));
+
+    // Team of the global leader: the only viewer-independent "top team".
+    TopTeamIndex = -1;
+    if (Top != None && Top.Team != None)
+        TopTeamIndex = Top.Team.TeamIndex;
 
     // Longest tokens first.
     if (Top == None)
@@ -85,13 +89,20 @@ static function string ExpandTokens(string Msg, PlayerController PC)
         ReplaceText(Msg, "$TOPFRAGGER", Top.PlayerName);
     }
 
-    if (TopTeam == None)
+    if (TopTeamIndex < 0)
+    {
+        ReplaceText(Msg, "$TOPTEAMSHORT", FALLBACK_TEAM);
+        ReplaceText(Msg, "$TOPTEAMNAME", FALLBACK_TEAM);
         ReplaceText(Msg, "$TOPTEAMFRAGGER", FALLBACK_NAME);
+    }
     else
-        ReplaceText(Msg, "$TOPTEAMFRAGGER", TopTeam.PlayerName);
+    {
+        ReplaceText(Msg, "$TOPTEAMSHORT", GetTeamShortNameByIndex(GRI, TopTeamIndex));
+        ReplaceText(Msg, "$TOPTEAMNAME", GetTeamNameByIndex(GRI, TopTeamIndex));
+        TopTeam = FindTopPlayer(GRI, TopTeamIndex);
+        ReplaceText(Msg, "$TOPTEAMFRAGGER", GetPlayerName(TopTeam));
+    }
 
-    ReplaceText(Msg, "$TOPTEAMSHORT", GetTeamShortName(GRI, PC));
-    ReplaceText(Msg, "$TOPTEAMNAME", GetTeamName(GRI, PC));
     LeadIndex = GetLeadTeamIndex(GRI);
     ReplaceText(Msg, "$LEADTEAMSHORT", GetTeamShortNameByIndex(GRI, LeadIndex));
     ReplaceText(Msg, "$LEADTEAMNAME", GetTeamNameByIndex(GRI, LeadIndex));
@@ -100,10 +111,11 @@ static function string ExpandTokens(string Msg, PlayerController PC)
     else
         ReplaceText(Msg, "$LEADTEAMFRAGGER",
                     GetPlayerName(FindTopPlayer(GRI, LeadIndex)));
-    ReplaceText(Msg, "$MAPNAME", GetMapName(PC));
+
+    ReplaceText(Msg, "$MAPNAME", GetMapName(L));
     ReplaceText(Msg, "$SERVERNAME", GetServerName(GRI));
     ReplaceText(Msg, "$PLAYERCOUNT", string(GetPlayerCount(GRI)));
-    ReplaceText(Msg, "$GAMETYPE", GetGameType(PC, GRI));
+    ReplaceText(Msg, "$GAMETYPE", GetGameType(L, GRI));
     ReplaceText(Msg, "$GOALSCORE", GetGoalScoreText(GRI));
     ReplaceText(Msg, "$REDVAL", string(int(GetTeamScore(GRI, 0))));
     ReplaceText(Msg, "$BLUEVAL", string(int(GetTeamScore(GRI, 1))));
@@ -116,6 +128,7 @@ static function string ExpandTokens(string Msg, PlayerController PC)
     ReplaceText(Msg, "$TIMEREMAINING", GetTimeRemaining(GRI));
 
     // Dynamic $RANDOM<min>_<max> tokens (optionally K/M-scaled).
+    // Also handles legacy %RANDOM tokens for compat.
     Msg = ExpandRandomTokens(Msg);
 
     // Second pass: force inserted values (usernames, map/server/team names)
@@ -249,19 +262,19 @@ static function int ParseDigits(string S)
 // ---------------------------------------------------------------------------
 
 /** Display title of the map, or the map filename when the title is untitled. */
-static function string GetMapName(PlayerController PC)
+static function string GetMapName(LevelInfo L)
 {
     local string S;
     local int Dot;
 
-    if (PC == None || PC.Level == None)
+    if (L == None)
         return FALLBACK_MAP;
 
-    if (PC.Level.Title != "" && PC.Level.Title != PC.Level.Default.Title)
-        return PC.Level.Title;
+    if (L.Title != "" && L.Title != L.Default.Title)
+        return L.Title;
 
     // string(Level) is "DM-Rankin.LevelInfo0"; keep the part before the dot.
-    S = string(PC.Level);
+    S = string(L);
     Dot = InStr(S, ".");
     if (Dot >= 0)
         S = Left(S, Dot);
@@ -280,14 +293,13 @@ static function string GetServerName(GameReplicationInfo GRI)
 }
 
 /** Replicated game-mode name, with a standalone fallback. */
-static function string GetGameType(PlayerController PC, GameReplicationInfo GRI)
+static function string GetGameType(LevelInfo L, GameReplicationInfo GRI)
 {
     if (GRI != None && GRI.GameName != "")
         return GRI.GameName;
 
-    if (PC != None && PC.Level != None && PC.Level.Game != None &&
-        PC.Level.Game.GameName != "")
-        return PC.Level.Game.GameName;
+    if (L != None && L.Game != None && L.Game.GameName != "")
+        return L.Game.GameName;
 
     return FALLBACK_GAMETYPE;
 }
@@ -313,16 +325,6 @@ static function int GetPlayerCount(GameReplicationInfo GRI)
 // ---------------------------------------------------------------------------
 // Standings helpers
 // ---------------------------------------------------------------------------
-
-/** Team index of the Director, or -1 when no valid team is available. */
-static function int GetDirectorTeam(PlayerController PC)
-{
-    if (PC == None || PC.PlayerReplicationInfo == None ||
-        PC.PlayerReplicationInfo.Team == None)
-        return -1;
-
-    return PC.PlayerReplicationInfo.Team.TeamIndex;
-}
 
 /**
  * Highest-scoring non-spectator.  Pass TeamIndex = -1 for the global leader,
@@ -414,18 +416,6 @@ static function float GetTeamScore(GameReplicationInfo GRI, int TeamIndex)
     if (GRI.Teams[TeamIndex] == None)
         return 0.0;
     return GRI.Teams[TeamIndex].Score;
-}
-
-/** Display name of the Director's own team. */
-static function string GetTeamName(GameReplicationInfo GRI, PlayerController PC)
-{
-    return GetTeamNameByIndex(GRI, GetDirectorTeam(PC));
-}
-
-/** Short name of the Director's own team. */
-static function string GetTeamShortName(GameReplicationInfo GRI, PlayerController PC)
-{
-    return GetTeamShortNameByIndex(GRI, GetDirectorTeam(PC));
 }
 
 /** Red or Blue for the two stock team slots. */
