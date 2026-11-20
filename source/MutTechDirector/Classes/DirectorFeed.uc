@@ -16,8 +16,7 @@
 // ignored by the dynamic-array config reader.
 //
 // All token expansion happens ONCE on the server (by RespawnDelayBroadcast)
-// and the finished string is replicated.  Tokens are viewer-agnostic:
-// $TOPTEAM* names the team of the global scoreboard leader (not "my team").
+// and the finished string is replicated.  Tokens are viewer-agnostic.
 //=============================================================================
 class DirectorFeed extends Object
     config(MutTechDirector);
@@ -43,9 +42,7 @@ const MAX_RANDOM        = 1000000;
  *
  * Viewer-agnostic: the broadcast is authored ONCE on the server and the
  * resulting string is replicated to every client.  No token may depend on
- * who is looking at it.  $TOPTEAM* therefore names the team of the overall
- * scoreboard leader instead of "my team"; $LEADTEAM* stays the team with the
- * higher total score.
+ * who is looking at it.  $LEADTEAM* stays the team with the higher total score.
  *
  * The template is uppercased before matching, so token names are effectively
  * case-insensitive.  The finished message is uppercased again so inserted
@@ -57,8 +54,6 @@ static function string ExpandTokens(string Msg, GameReplicationInfo GRI,
                                     bool bTeamGame, LevelInfo L)
 {
     local PlayerReplicationInfo Top;
-    local PlayerReplicationInfo TopTeam;
-    local int TopTeamIndex;
     local int LeadIndex;
 
     if (Msg == "")
@@ -72,11 +67,6 @@ static function string ExpandTokens(string Msg, GameReplicationInfo GRI,
 
     Top = FindTopPlayer(GRI, -1);
 
-    // Team of the global leader: the only viewer-independent "top team".
-    TopTeamIndex = -1;
-    if (Top != None && Top.Team != None)
-        TopTeamIndex = Top.Team.TeamIndex;
-
     // Longest tokens first.
     if (Top == None)
     {
@@ -87,20 +77,6 @@ static function string ExpandTokens(string Msg, GameReplicationInfo GRI,
     {
         ReplaceText(Msg, "$TOPFRAGGERSCORE", string(int(Top.Score)));
         ReplaceText(Msg, "$TOPFRAGGER", Top.PlayerName);
-    }
-
-    if (TopTeamIndex < 0)
-    {
-        ReplaceText(Msg, "$TOPTEAMSHORT", FALLBACK_TEAM);
-        ReplaceText(Msg, "$TOPTEAMNAME", FALLBACK_TEAM);
-        ReplaceText(Msg, "$TOPTEAMFRAGGER", FALLBACK_NAME);
-    }
-    else
-    {
-        ReplaceText(Msg, "$TOPTEAMSHORT", GetTeamShortNameByIndex(GRI, TopTeamIndex));
-        ReplaceText(Msg, "$TOPTEAMNAME", GetTeamNameByIndex(GRI, TopTeamIndex));
-        TopTeam = FindTopPlayer(GRI, TopTeamIndex);
-        ReplaceText(Msg, "$TOPTEAMFRAGGER", GetPlayerName(TopTeam));
     }
 
     LeadIndex = GetLeadTeamIndex(GRI);
