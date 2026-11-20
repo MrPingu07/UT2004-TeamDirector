@@ -90,8 +90,10 @@ static function string ExpandTokens(string Msg, PlayerController PC)
     else
         ReplaceText(Msg, "$TOPTEAMFRAGGER", TopTeam.PlayerName);
 
+    ReplaceText(Msg, "$TOPTEAMSHORT", GetTeamShortName(GRI, PC));
     ReplaceText(Msg, "$TOPTEAMNAME", GetTeamName(GRI, PC));
     LeadIndex = GetLeadTeamIndex(GRI);
+    ReplaceText(Msg, "$LEADTEAMSHORT", GetTeamShortNameByIndex(GRI, LeadIndex));
     ReplaceText(Msg, "$LEADTEAMNAME", GetTeamNameByIndex(GRI, LeadIndex));
     if (LeadIndex < 0)
         ReplaceText(Msg, "$LEADTEAMFRAGGER", FALLBACK_NAME);
@@ -414,32 +416,73 @@ static function float GetTeamScore(GameReplicationInfo GRI, int TeamIndex)
     return GRI.Teams[TeamIndex].Score;
 }
 
-/** Display name of the Director's own team; Red/Blue when TeamName is blank. */
+/** Display name of the Director's own team. */
 static function string GetTeamName(GameReplicationInfo GRI, PlayerController PC)
 {
     return GetTeamNameByIndex(GRI, GetDirectorTeam(PC));
 }
 
+/** Short name of the Director's own team. */
+static function string GetTeamShortName(GameReplicationInfo GRI, PlayerController PC)
+{
+    return GetTeamShortNameByIndex(GRI, GetDirectorTeam(PC));
+}
+
+/** Red or Blue for the two stock team slots. */
+static function string GetTeamColorName(int TeamIndex)
+{
+    if (TeamIndex == 0)
+        return "Red";
+    if (TeamIndex == 1)
+        return "Blue";
+
+    return FALLBACK_TEAM;
+}
+
 /**
- * Display name for an explicit team slot: GRI.Teams[i].TeamName, or Red/Blue
- * when that name is blank.  TeamIndex < 0 means no single leader (tie or no
- * replicated teams) and returns "Neither", matching $LEADTEAM.
+ * Display name for an explicit team slot.  Uses the same human-readable name
+ * as the stock scoreboard, so the generic default TeamName ("Team") becomes
+ * Red/Blue instead of printing the word TEAM.  TeamIndex < 0 means no single
+ * leader (tie or no replicated teams) and returns "Neither", matching
+ * $LEADTEAM.
  */
 static function string GetTeamNameByIndex(GameReplicationInfo GRI, int TeamIndex)
 {
+    local string TeamName;
+
     if (TeamIndex < 0)
         return "Neither";
 
     if (GRI == None || TeamIndex > 1 || GRI.Teams[TeamIndex] == None)
         return FALLBACK_TEAM;
 
-    if (GRI.Teams[TeamIndex].TeamName != "")
-        return GRI.Teams[TeamIndex].TeamName;
+    TeamName = GRI.Teams[TeamIndex].GetHumanReadableName();
+    if (TeamName != "")
+        return TeamName;
 
-    if (TeamIndex == 0)
-        return "Red";
+    return GetTeamColorName(TeamIndex);
+}
 
-    return "Blue";
+/**
+ * Team name for messages that already contain the word TEAM (for example
+ * "OVER AT THE ... CORNER").  A custom name such as "Iron Guard" is kept;
+ * a redundant trailing " TEAM" is removed so "Red Team" cannot become
+ * "RED TEAM TEAM".  The stock generic name is already handled as Red/Blue by
+ * GetTeamNameByIndex().
+ */
+static function string GetTeamShortNameByIndex(GameReplicationInfo GRI, int TeamIndex)
+{
+    local string TeamName;
+
+    TeamName = GetTeamNameByIndex(GRI, TeamIndex);
+    if (TeamName == FALLBACK_TEAM || TeamName == "Neither")
+        return TeamName;
+
+    if (Len(TeamName) > Len(" TEAM") &&
+        Caps(Right(TeamName, Len(" TEAM"))) == " TEAM")
+        return Left(TeamName, Len(TeamName) - Len(" TEAM"));
+
+    return TeamName;
 }
 
 /** Index of the team with the higher score, or -1 when tied/unavailable. */

@@ -320,7 +320,8 @@ the ini, and every Director sees the host's authored feed.
 - Tokens cover map/server/player counts, match status, clocks, scores, team
   standings and more. `$TOPTEAMNAME` / `$TOPTEAMFRAGGER` mean the **Director's
   own team**; `$LEADTEAMNAME` / `$LEADTEAMFRAGGER` mean the **currently leading
-  team**.
+  team**. `$TOPTEAMSHORT` / `$LEADTEAMSHORT` give the same teams without a
+  redundant trailing `TEAM`, for messages that already use that word.
 - Random values use the dynamic `$RANDOM<min>_<max>[K|M]` syntax, e.g.
   `$RANDOM1_9`, `$RANDOM25_50`, `$RANDOM1_50K`. Results are full integers
   grouped with dots (`43.781`), never compact (`43K`), and are rolled once per

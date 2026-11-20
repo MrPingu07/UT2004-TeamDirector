@@ -223,11 +223,13 @@ integers.
 | `$TOPFRAGGER` | Global match leader name | Highest `PRI.Score` among non-spectators; ties go to the first entry in `PRIArray`; fallback `Someone` |
 | `$TOPFRAGGERSCORE` | Global leader's score | Score of that same player; fallback `lots of` |
 | `$TOPTEAMFRAGGER` | Leader of the **Director's own team** | Highest score filtered by `PRI.Team.TeamIndex == Director team`; fallback `Someone` |
-| `$TOPTEAMNAME` | Display name of the **Director's own team** | `GRI.Teams[directorTeam].TeamName`; `Red`/`Blue` if the name is blank; fallback `Our Team` |
+| `$TOPTEAMNAME` | Display name of the **Director's own team** | `GRI.Teams[directorTeam].GetHumanReadableName()`; the stock generic `Team` name and blank names become `Red`/`Blue`; fallback `Our Team` |
+| `$TOPTEAMSHORT` | Short name of the **Director's own team** | `$TOPTEAMNAME` with a redundant trailing `TEAM` removed, for messages that already say "team"; fallback `Our Team` |
 | `$REDVAL` | Red team aggregate | `GRI.Teams[0].Score`; `0` if the slot is empty |
 | `$BLUEVAL` | Blue team aggregate | `GRI.Teams[1].Score`; `0` if the slot is empty |
 | `$LEADTEAM` | Team currently ahead | Compares the two team scores; `Red`, `Blue`, or `Neither` |
-| `$LEADTEAMNAME` | Display name of the **leading team** | `GRI.Teams[lead].TeamName`; `Red`/`Blue` if blank; `Neither` on a tie/no teams |
+| `$LEADTEAMNAME` | Display name of the **leading team** | `GRI.Teams[lead].GetHumanReadableName()`; stock generic/blank names become `Red`/`Blue`; `Neither` on a tie/no teams |
+| `$LEADTEAMSHORT` | Short name of the **leading team** | `$LEADTEAMNAME` with a redundant trailing `TEAM` removed; `Neither` on a tie/no teams |
 | `$LEADTEAMFRAGGER` | Top scorer on the **leading team** | Highest score filtered by the leading team index; `Someone` on a tie/no teams |
 | `$TOTALFRAGS` | Combined score of all active players | Sum of every non-spectator `PRI.Score`; fallback `0` |
 | `$HIGHESTSCORE` | Peak score on the board | Highest non-spectator `PRI.Score` as an integer; `0` if nobody is on the board |
@@ -246,8 +248,17 @@ Team-index notes:
   regardless of who is winning. They are not global and not "the top team".
   Use `$LEADTEAMNAME` / `$LEADTEAMFRAGGER` for the team that is currently
   ahead, and `$TOPFRAGGER` for the global score leader.
-- Because `$LEADTEAM` is a prefix of both new tokens, `$LEADTEAMNAME` and
-  `$LEADTEAMFRAGGER` are replaced first in `ExpandTokens()`.
+- `GetHumanReadableName()` matters: stock `TeamInfo.TeamName` defaults to the
+  literal word `Team`, not an empty string. `$TOPTEAMNAME` therefore prints
+  `Red`/`Blue` for a stock team instead of `TEAM`. That also prevents messages
+  such as `$TOPTEAMNAME FANS` from becoming `TEAM FANS`.
+- `$TOPTEAMSHORT` / `$LEADTEAMSHORT` are for templates that already contain
+  the word `TEAM` (for example `$LEADTEAMSHORT TEAM CURRENTLY...`). They keep
+  custom names such as `Iron Guard`, but strip a redundant trailing `TEAM`
+  from names such as `Red Team`.
+- Because `$LEADTEAM` is a prefix of the other leading-team tokens,
+  `$LEADTEAMNAME`, `$LEADTEAMSHORT` and `$LEADTEAMFRAGGER` are replaced before
+  `$LEADTEAM` in `ExpandTokens()`.
 - Bots participate in every standings token.
 
 ### 5.5 Time and status
