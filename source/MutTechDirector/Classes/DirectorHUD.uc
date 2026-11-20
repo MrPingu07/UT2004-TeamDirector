@@ -163,6 +163,7 @@ simulated function string PickMessage()
     local DirectorReplicationInfo DirRI;
     local int n, i, j, tmp, Tries;
     local string Msg;
+    local bool bIsTeamGame;
 
     DirRI = GetDirectorRI();
     if (DirRI != None)
@@ -214,10 +215,13 @@ simulated function string PickMessage()
         else
             Msg = class'DirectorFeed'.default.Messages[i];
         if (Msg != "")
-            return class'DirectorFeed'.static.ExpandTokens(Msg, Level.Game.GameReplicationInfo, DirRI.bTeamGame, Level);
+    {
+        bIsTeamGame = (Level.GRI != None && Level.GRI.bTeamGame);
+        return class'DirectorFeed'.static.ExpandTokens(Msg, Level.Game.GameReplicationInfo, bIsTeamGame, Level);
     }
+}
 
-    return class'DirectorFeed'.static.ExpandTokens("TECHNICAL DIRECTOR MODE", None, false, Level);
+return class'DirectorFeed'.static.ExpandTokens("TECHNICAL DIRECTOR MODE", None, false, Level);
 }
 
 /**
@@ -264,10 +268,19 @@ simulated function DrawSpectatingHud(Canvas C)
     local string TimeStr;
 
     // Resolution-independent scaling (1024x768 as reference = scale 1.0)
+    // And set font
     local float Scale;
+    local Font HugeFont;
     
     Scale = C.ClipY / 768.0;
     
+    //Resolve font
+    HugeFont = GetFontSizeIndex(C, 0);
+    if (HugeFont == None)
+    {
+        HugeFont = Font(DynamicLoadObject("UT2003Fonts.FontEurostile37", class'Font'));
+    }
+
     // First, draw the native chat feed at its native position (bottom of screen)
     DisplayLocalMessages(C);
     
@@ -356,7 +369,7 @@ simulated function DrawSpectatingHud(Canvas C)
     );
     C.Style = ERenderStyle.STY_Normal;
     
-    // Team score counter at top center (hidden during F1) - simple integers only, 2x size
+    // Team score counter at top center (hidden during F1) - simple integers only
     MyHUD = PlayerOwner.myHUD;
     if (PlayerOwner != None && MyHUD != None && !MyHUD.bShowScoreBoard)
     {
@@ -365,16 +378,21 @@ simulated function DrawSpectatingHud(Canvas C)
         {
             RedScore = string(int(GRI.Teams[0].Score));
             BlueScore = string(int(GRI.Teams[1].Score));
-            
-            C.Font = C.MedFont;
-            C.FontScaleX = 2.0;
-            C.FontScaleY = 2.0;
+
+            if (HugeFont != None)
+            {
+                C.Font = HugeFont;
+            }
+            C.FontScaleX = 1.0;
+            C.FontScaleY = 1.0;
+
             C.StrLen(RedScore, RedW, PH);
             C.StrLen(BlueScore, BlueW, PH);
             C.StrLen(" - ", DashW, PH);
-            
+
+            TScoreY = 16.0 * Scale;
+
             // Match time remaining (mm:ss) in white above score counter
-            
             if (Level.Game != None)
             {
                 Minutes = int((Level.Game.TimeLimit * 60.0 - Level.TimeSeconds) / 60.0);
@@ -383,45 +401,61 @@ simulated function DrawSpectatingHud(Canvas C)
                 if (Seconds < 0) Seconds = 0;
                 TimeStr = string(Minutes) $ ":" $ string(Seconds);
                 if (Seconds < 10) TimeStr = string(Minutes) $ ":0" $ string(Seconds);
-                
+
+                if (HugeFont != None)
+                {
+                    C.Font = HugeFont;
+                }
+                C.FontScaleX = 1.0;
+                C.FontScaleY = 1.0;
                 C.StrLen(TimeStr, TimeW, PH);
                 TimeY = TScoreY - PH * 2.5; // Above score counter with spacing
                 C.SetDrawColor(255, 255, 255, 255);
                 C.SetPos((C.ClipX - TimeW) * 0.5, TimeY);
                 C.DrawText(TimeStr);
             }
-            
+
             // Centered text: Red - Blue
+            if (HugeFont != None)
+            {
+                C.Font = HugeFont;
+            }
+            C.FontScaleX = 1.0;
+            C.FontScaleY = 1.0;
             TTotalW = RedW + DashW + BlueW;
             TStartX = (C.ClipX - TTotalW) * 0.5;
-            TScoreY = 16.0 * Scale;
-            
+
             // Red score
             C.SetDrawColor(255, 80, 80, 255);
             C.SetPos(TStartX, TScoreY);
             C.DrawText(RedScore);
-            
+
             // Dash
             C.SetDrawColor(255, 255, 255, 255);
             C.SetPos(TStartX + RedW, TScoreY);
             C.DrawText(" - ");
-            
+
             // Blue score
             C.SetDrawColor(100, 150, 255, 255);
             C.SetPos(TStartX + RedW + DashW, TScoreY);
             C.DrawText(BlueScore);
-            
+
             // Reset font scale
             C.FontScaleX = 1.0;
             C.FontScaleY = 1.0;
         }
     }
-    
+
     // Typewriter + blinking cursor banner (centered, no horizontal motion)
+    if (HugeFont != None)
+    {
+        C.Font = HugeFont;
+    }
+    C.FontScaleX = 0.8;
+    C.FontScaleY = 0.8;
 
     // Center text vertically in banner
-    C.Font = C.MedFont;
-    C.StrLen("X", Dummy, PH);  // PH = line height for MedFont
+    C.StrLen("X", Dummy, PH);  // PH = scaled line height
     TextYPos = BannerY + (BannerHeight - PH) * 0.5;
 
     CycleElapsed = Level.TimeSeconds - CycleStart;
@@ -438,7 +472,12 @@ simulated function DrawSpectatingHud(Canvas C)
     PhaseTime = FMax(0.0, CycleElapsed - PhaseStart);
     CursorVisible = GetCursorVisible(PhaseTime, Phase);
 
-    C.Font = C.MedFont;
+    if (HugeFont != None)
+    {
+        C.Font = HugeFont;
+    }
+    C.FontScaleX = 0.8;
+    C.FontScaleY = 0.8;
     C.StrLen(CurrentMessage, FullWidth, PH);
     AnchorX = (C.ClipX - FullWidth) * 0.5;
     L = Len(CurrentMessage);
@@ -455,6 +494,12 @@ simulated function DrawSpectatingHud(Canvas C)
 
     if (Shown > 0)
     {
+        if (HugeFont != None)
+        {
+            C.Font = HugeFont;
+        }
+        C.FontScaleX = 0.8;
+        C.FontScaleY = 0.8;
         C.StrLen(Left(CurrentMessage, Start), SliceX, Dummy);
         SliceX += AnchorX;
         C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
@@ -464,6 +509,12 @@ simulated function DrawSpectatingHud(Canvas C)
 
     if (CursorVisible)
     {
+        if (HugeFont != None)
+        {
+            C.Font = HugeFont;
+        }
+        C.FontScaleX = 0.8;
+        C.FontScaleY = 0.8;
         C.StrLen(Left(CurrentMessage, Start + Shown), CursorX, Dummy);
         CursorX += AnchorX;
         OldStyle = C.Style;
@@ -473,8 +524,8 @@ simulated function DrawSpectatingHud(Canvas C)
         C.DrawTileStretched(material'InterfaceContent.SquareBoxA', 8.0 * Scale, PH);
         C.Style = OldStyle;
     }
-
 }
+
 defaultproperties
 {
     bShowScores=False

@@ -603,7 +603,7 @@ function PostRender(Canvas C)
             if (P.DrivenVehicle != None)
                 continue;
 
-            Head = P.Location + vect(0,0,60);
+            Head = P.Location + vect(0,0,50);
 
             // Skip anything behind the camera.
             if ((Head - CamLoc) Dot vector(CamRot) <= 0.0)

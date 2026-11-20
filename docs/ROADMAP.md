@@ -37,6 +37,7 @@
 | Build tooling with INI restore | Done |
 | Documentation | In progress (this pass) |
 | Multi-client live playtest | Not yet performed |
+| Director HUD font & scale isolation (`HugeFont` + per-block `Canvas` state) | Done — `0 errors, 5 known warnings` |
 
 ## Known limitations
 

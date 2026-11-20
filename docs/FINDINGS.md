@@ -314,3 +314,27 @@ Why the horizontal panning text ticker was abandoned in `DirectorHUD.DrawSpectat
 - The loop copy (`LoopX = TextX + TextWidth`) died at the left border because the modulo in `TextX` reset exactly when the copy reached X = 0.
 
 The replacement design (center-out typewriter + blinking cursor) avoids all of this: the text is always centered at a fixed anchor, only a slice that fits on screen is ever passed to `DrawText`, and nothing moves horizontally.
+
+## 19. `DirectorHUD` font isolation and compiler traps
+
+* **Per-block `HugeFont` and scale assignment:** in `DirectorHUD`, resolve
+  `HugeFont` via `GetFontSizeIndex(C, 0)` with a fallback to
+  `Font(DynamicLoadObject("UT2003Fonts.FontEurostile37", class'Font'))`, and
+  explicitly assign `C.Font`, `C.FontScaleX`, and `C.FontScaleY` before each
+  `StrLen` and `DrawText` call across the team score counter, match clock, and
+  typewriter banner.
+* **Vertical ordering of `TScoreY` and `TimeY`:** assign `TScoreY = 16.0 * Scale`
+  before computing `TimeY = TScoreY - PH * 2.5` so the clock above the score
+  counter never depends on a stale or uninitialized `TScoreY`.
+* **Function closing brace before `defaultproperties`:** omitting the closing
+  `}` of the enclosing function before `defaultproperties` causes
+  `Error, Unexpected end of file at end of Class` at the end of the file.
+* **Undeclared local inside `If`:** referencing a variable like `HugeFont`
+  inside `if (HugeFont != None)` when `local Font HugeFont;` was omitted from
+  the top of the function produces `Error, Bad or missing expression in 'If'`
+  on that line.
+* **Non-existent `bShow*` keys in `DirectorHUD.defaultproperties`:**
+  `bShowScores`, `bShowStats`, `bShowCrosshair`, `bShowRadar`, and
+  `bShowVehicleNames` trigger `Warning, ... Unknown property in defaults`
+  because those names are not present on `DirectorHUD`'s inheritance chain;
+  `bShowWeaponInfo`, `ConsoleMessagePosX`, and `ConsoleMessagePosY` are valid.

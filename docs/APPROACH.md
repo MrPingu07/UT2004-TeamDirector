@@ -118,12 +118,18 @@ in the booth. It draws:
 
 - A clean broadcast frame: full-width dark band with team-coloured stripes,
   stock `LMSLogoSmall` "U" logo at left.
-- Team score counter at top centre (red–blue, 2× `MedFont`), hidden during F1.
-- Match clock in white above the score.
-- A centred typewriter feed at normal `MedFont` size inside the banner.
+- Team score counter at top centre (red–blue) and match clock in white above
+  it (`TimeY = TScoreY - PH * 2.5` after setting `TScoreY = 16.0 * Scale`),
+  hidden during F1.
+- A centred typewriter feed inside the banner with explicit per-block font and
+  scale state so shared `Canvas` properties from other HUD passes do not cause
+  size oscillations.
   22-second cycle: flicker, blink, type, blink, hold, flicker, blink, delete,
   blink, rest. New message chosen at cycle end or after a >0.5 s drawing gap.
   Tokens expanded once per message via `DirectorFeed.ExpandTokens()`.
+- Resolves `HugeFont` (`GetFontSizeIndex(C, 0)` with fallback to
+  `UT2003Fonts.FontEurostile37`) and explicitly sets `C.Font`, `C.FontScaleX`,
+  and `C.FontScaleY` before every `StrLen` / `DrawText` block.
 - Suppresses native vehicle name drawing (`DrawVehicleName`), native team
   beacon drawing (`DrawCustomBeacon`), crosshair (`DrawCrosshair`), and stock
   message text (`DrawMessage`).
