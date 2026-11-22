@@ -406,11 +406,13 @@ function PostRender(Canvas C)
     // Hotbar, cheatsheet, TeamMates use TinyFont - resolution independent
     if (C.TinyFont != None)
         C.Font = C.TinyFont;
-    C.FontScaleX = 1.0;
-    C.FontScaleY = 1.0;
 
     // Resolution-independent scale factor (1024x768 as reference = scale 1.0)
     Scale = C.ClipY / 768.0;
+
+    // Scale font too so text size tracks resolution
+    C.FontScaleX = Scale;
+    C.FontScaleY = Scale;
 
     C.StrLen("Mg", XL, YL);
     if (YL < 8.0 * Scale)
