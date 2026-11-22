@@ -239,9 +239,9 @@ integers.
 | --- | --- | --- |
 | `$TOPFRAGGER` | Global match leader name | Highest `PRI.Score` among non-spectators; ties go to the first entry in `PRIArray`; fallback `Someone` |
 | `$TOPFRAGGERSCORE` | Global leader's score | Score of that same player; fallback `lots of` |
-| `$TOPTEAMFRAGGER` | Leader of the **Director's own team** | Highest score filtered by `PRI.Team.TeamIndex == Director team`; fallback `Someone` |
-| `$TOPTEAMNAME` | Display name of the **Director's own team** | `GRI.Teams[directorTeam].GetHumanReadableName()`; the stock generic `Team` name and blank names become `Red`/`Blue`; fallback `Our Team` |
-| `$TOPTEAMSHORT` | Short name of the **Director's own team** | `$TOPTEAMNAME` with a redundant trailing `TEAM` removed, for messages that already say "team"; fallback `Our Team` |
+| `$TOPTEAMFRAGGER` | Top scorer on the **global leader's team** | Same as `$TOPFRAGGER` if the leader has a team; fallback `Someone` |
+| `$TOPTEAMNAME` | Display name of the **global leader's team** | `GRI.Teams[leaderTeam].GetHumanReadableName()`; stock generic `Team` name and blank names become `Red`/`Blue`; fallback `Our Team` |
+| `$TOPTEAMSHORT` | Short name of the **global leader's team** | `$TOPTEAMNAME` with a redundant trailing `TEAM` removed, for messages that already say "team"; fallback `Our Team` |
 | `$REDVAL` | Red team aggregate | `GRI.Teams[0].Score`; `0` if the slot is empty |
 | `$BLUEVAL` | Blue team aggregate | `GRI.Teams[1].Score`; `0` if the slot is empty |
 | `$LEADTEAM` | Team currently ahead | Compares the two team scores; `Red`, `Blue`, or `Neither` |
@@ -261,10 +261,8 @@ Team-index notes:
   `PlayerOwner.PlayerReplicationInfo.Team.TeamIndex`, which remains valid while
   the Director is in the booth because the mutator never removes them from the
   team.
-- `$TOPTEAMNAME` and `$TOPTEAMFRAGGER` refer to the **Director's own team**,
-  regardless of who is winning. They are not global and not "the top team".
-  Use `$LEADTEAMNAME` / `$LEADTEAMFRAGGER` for the team that is currently
-  ahead, and `$TOPFRAGGER` for the global score leader.
+- `$LEADTEAMNAME` / `$LEADTEAMFRAGGER` / `$LEADTEAMSHORT` refer to the **team currently ahead** on the scoreboard.
+- `$TOPTEAMNAME` / `$TOPTEAMFRAGGER` / `$TOPTEAMSHORT` refer to the **team of the global scoreboard leader** (`$TOPFRAGGER`), not the Director's own team.
 - `GetHumanReadableName()` matters: stock `TeamInfo.TeamName` defaults to the
   literal word `Team`, not an empty string. `$TOPTEAMNAME` therefore prints
   `Red`/`Blue` for a stock team instead of `TEAM`. That also prevents messages
