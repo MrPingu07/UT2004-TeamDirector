@@ -408,7 +408,10 @@ function PostRender(Canvas C)
         C.Font = C.TinyFont;
 
     // Resolution-independent scale factor (1024x768 as reference = scale 1.0)
+    // Clamp at 1.0 for resolutions below 768p so text stays readable
     Scale = C.ClipY / 768.0;
+    if (Scale < 1.0)
+        Scale = 1.0;
 
     // Scale font too so text size tracks resolution
     C.FontScaleX = Scale;
