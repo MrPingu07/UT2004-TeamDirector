@@ -380,6 +380,7 @@ function PostRender(Canvas C)
 
     // Resolution-independent scaling (1024x768 as reference = scale 1.0)
     local float Scale;
+    local float BannerTop;
 
     if (RI == None || RI.bDeleteMe)
     {
@@ -556,8 +557,8 @@ function PostRender(Canvas C)
     }
 
     // -- lower-right: live TeamMates roster counter ------------------------
-    // Keeps the old cheatsheet uplift so the block clears the chat area and
-    // the "Now spectating..." banner drawn along the bottom of the screen.
+    // Positioned just above the broadcast banner (same right margin).
+    // Banner top stripe is at C.ClipY - 80.0 * Scale.
     TeamTotal = RI.TeamAlive + RI.TeamDead;
     StatusColor = Dim;
     PlateColor = Dim;
@@ -572,15 +573,17 @@ function PostRender(Canvas C)
         PlateColor = RatioColor(1.0 - RatioD);
     }
 
+    BannerTop = C.ClipY - 80.0 * Scale;  // matches DirectorHUD banner top stripe
+
     DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, "TeamMates"),
-        C.ClipY - 14.0 * Scale - (8.0 * LineH), "TeamMates", Cyan);
+        BannerTop - 4.0 * Scale - (3.0 * LineH), "TeamMates", Cyan);
     NameText = "Alive: " $ RI.TeamAlive;
     DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, NameText),
-        C.ClipY - 14.0 * Scale - (7.0 * LineH), NameText, StatusColor);
+        BannerTop - 4.0 * Scale - (2.0 * LineH), NameText, StatusColor);
 
     NameText = "Dead: " $ RI.TeamDead;
     DrawLine(C, C.ClipX - 24.0 * Scale - TextWidth(C, NameText),
-        C.ClipY - 14.0 * Scale - (6.0 * LineH), NameText, PlateColor);
+        BannerTop - 4.0 * Scale - (1.0 * LineH), NameText, PlateColor);
 
     // -- always-visible friendly nameplates / vehicle beacons ------------------
     // No FastTrace / occlusion test: the booth sees the whole arena through
