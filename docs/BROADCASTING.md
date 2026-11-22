@@ -27,19 +27,20 @@ only; it never changes gameplay, scores, or cooldowns.
 
 | File | Responsibility |
 | --- | --- |
-| `source/MutTechDirector/Classes/DirectorFeed.uc` | Config-backed message array plus the token helpers and `ExpandTokens()` |
+| `source/MutTechDirector/Classes/DirectorFeed.uc` | Config-backed message array, optional merge with RespawnDelay's feed, plus the token helpers and `ExpandTokens()` |
 | `source/MutTechDirector/Classes/DirectorHUD.uc` | Shuffle bag, message selection, snapshotting, typewriter rendering |
-| `source/MutTechDirector/Classes/DirectorReplicationInfo.uc` | Replicates the server's feed list to the Director's client |
+| `source/MutTechDirector/Classes/DirectorReplicationInfo.uc` | Replicates the server's merged feed list to the Director's client |
 | `install/MutTechDirector.ini` | Shipped source copy of the feed config; this is the file edited and released |
 | `<UT2004>/System/MutTechDirector.ini` | Runtime configuration read by the **server/host** |
 | `install/README.txt` | End-user instructions for the same workflow |
 
 The HUD and token expansion run on each client, but the **message list comes
-from the server**. The server reads `MutTechDirector.ini`, snapshots the list
-into `DirectorReplicationInfo`, and replicates it to the Director's client.
-Joining players therefore do not need the ini, and everyone sees the host's
-broadcast. Tokens are still resolved client-side from replicated match state,
-so they stay live on each client.
+from the server**. The server reads `MutTechDirector.ini` (and, when installed,
+RespawnDelay's `RespawnDelay.ini`), merges the two lists with exact duplicate
+lines removed, snapshots the result into `DirectorReplicationInfo`, and
+replicates it to the Director's client. Joining players therefore do not need
+either ini, and everyone sees the host's broadcast. Tokens are still resolved
+client-side from replicated match state, so they stay live on each client.
 
 ---
 
@@ -53,9 +54,13 @@ install/MutTechDirector.ini                (server/host install)
     │
     ▼
 class'DirectorFeed'.default.Messages       (server)
+    │  plus RespawnDelay's feed when installed
+    │  GetMergedFeedMessages(): deduplicate, own lines first
+    ▼
+class'DirectorFeed'.GetMergedFeedMessages() (server)
     │  CopyFeedMessages() when the booth opens
     ▼
-DirectorReplicationInfo.FeedMessages[256]  ── reliable, owner-only ──► client
+DirectorReplicationInfo.FeedMessages[512]  ── reliable, owner-only ──► client
                                                                          │
                                                                          ▼
                                                            PickMessage()
@@ -72,8 +77,9 @@ DirectorReplicationInfo.FeedMessages[256]  ── reliable, owner-only ──►
                                                    typewriter ──► Canvas
 ```
 
-The list is capped at **256 messages**; entries beyond that are ignored. The
-current shipped feed has **155 messages**.
+The list is capped at **512 messages**; entries beyond that are ignored. The
+current shipped feed is **222 messages**, and a host with RespawnDelay installed
+merges in its lines for about **232 unique** lines after duplicates are removed.
 
 ### 3.1 Config file and section
 
@@ -90,6 +96,12 @@ index and no quotes. The indexed form (`Messages(0)=...`) belongs to static
 arrays and is silently ignored here, which leaves the two compiled-in
 defaults in place. That specific mistake is the most common reason for "my ini
 is not parsed".
+
+If the RespawnDelay mutator is installed, its
+`[RespawnDelay.RespawnDelayFeed]` entries are merged in at runtime. That feed is
+read with `DynamicLoadObject` + `GetPropertyText`, so this package neither
+imports nor compiles against RespawnDelay. Exact duplicate lines (compared
+case-insensitively) are dropped, with this mutator's lines kept first.
 
 ### 3.2 Authoring workflow
 
@@ -123,6 +135,9 @@ server's ini cannot be read, or a client receives no replicated list.
 server-replicated list:
 
 - Every configured message is shown once before any message repeats.
+- The bag is built from the merged list (this mutator plus RespawnDelay, when
+  installed); exact duplicate lines were already removed, so a line shared by
+  both inis cannot appear twice in one pass.
 - The bag is refilled and reshuffled when empty.
 - Empty strings are consumed and skipped.
 - If every entry is empty, the HUD falls back to `TECHNICAL DIRECTOR MODE`.
@@ -469,8 +484,9 @@ Expected; see §10.
 - **Free-for-all team tokens.** Slots 0/1 exist but are not meaningful.
 - **Localisation.** `Level.Title`, `GRI.GameName` and player names are printed
   as reported by the game; the feed does not translate or normalise them.
-- **256-message cap.** The replicated array is fixed at 256 entries. Extra
-  `Messages=` lines beyond that are dropped. The shipped feed has 155.
+- **512-message cap.** The replicated array is fixed at 512 entries. Extra
+  `Messages=` lines beyond that are dropped. The shipped feed has 222 lines;
+  with RespawnDelay installed the merged list is about 232 unique lines.
 - **Client-local ini is ignored when the server list arrives.** Editing your
   own `MutTechDirector.ini` on a client has no effect during a networked
   match; edit the server's copy instead. Standalone/Instant Action uses the

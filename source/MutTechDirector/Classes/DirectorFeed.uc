@@ -15,13 +15,21 @@
 // Do not use Messages(0)=... here; that form is for static arrays and is
 // ignored by the dynamic-array config reader.
 //
-// All token expansion happens ONCE on the server (by RespawnDelayBroadcast)
-// and the finished string is replicated.  Tokens are viewer-agnostic.
+// All token expansion happens ONCE when the HUD picks a message, and the
+// finished string is displayed for that cycle.  Tokens are viewer-agnostic.
+//
+// If the RespawnDelay mutator is installed, its [RespawnDelay.RespawnDelayFeed]
+// messages are merged into this feed.  The merge is done by reflection
+// (DynamicLoadObject + GetPropertyText) so MutTechDirector has no compile-time
+// dependency on RespawnDelay and both packages can be built standalone.
 //=============================================================================
 class DirectorFeed extends Object
     config(MutTechDirector);
 
 var config array<string> Messages;
+
+/** Optional sibling feed; ignored when the RespawnDelay package is absent. */
+const OTHER_FEED_CLASS = "RespawnDelay.RespawnDelayFeed";
 
 // Fallbacks keep every token non-empty so a message never collapses because
 // a value is unavailable (no GRI yet, warmup, empty board, etc.).
@@ -231,6 +239,137 @@ static function int ParseDigits(string S)
         Value = Value * 10 + (Asc(Mid(S, i, 1)) - Asc("0"));
 
     return Value;
+}
+
+// ---------------------------------------------------------------------------
+// Config messages (own + optional sibling mutator)
+// ---------------------------------------------------------------------------
+
+/**
+ * All broadcast lines this package should show: our configured Messages first,
+ * then any lines borrowed from the sibling mutator's feed.
+ *
+ * Exact duplicates (case-insensitive) are dropped, preserving first-seen order.
+ * This keeps the shuffle-bag promise intact: one line appears once per pass
+ * even when both inis ship the same text.
+ */
+static function array<string> GetMergedFeedMessages()
+{
+    local array<string> Out;
+    local array<string> Own;
+    local array<string> Extra;
+    local int i;
+
+    Own = class'DirectorFeed'.default.Messages;
+    for (i = 0; i < Own.Length; i++)
+        AppendUniqueMessage(Out, Own[i]);
+
+    Extra = LoadOtherFeedMessages();
+    for (i = 0; i < Extra.Length; i++)
+        AppendUniqueMessage(Out, Extra[i]);
+
+    return Out;
+}
+
+/**
+ * Read the sibling mutator's config-backed Messages array at runtime.
+ *
+ * A class literal would add a compile-time dependency (and a build cycle, since
+ * RespawnDelay also knows about us), so the class is loaded dynamically and a
+ * throwaway instance exposes its config defaults through GetPropertyText().
+ * Returns an empty list when the sibling package is not installed.
+ */
+static function array<string> LoadOtherFeedMessages()
+{
+    local array<string> Out;
+    local array<string> Raw;
+    local class<Object> FeedClass;
+    local Object FeedObj;
+    local string Text;
+    local int i;
+
+    FeedClass = class<Object>(DynamicLoadObject(OTHER_FEED_CLASS, class'Class', true));
+    if (FeedClass == None)
+        return Out;
+
+    FeedObj = new(None) FeedClass;
+    if (FeedObj == None)
+        return Out;
+
+    Text = FeedObj.GetPropertyText("Messages");
+    Raw = ParseMessagesText(Text);
+    for (i = 0; i < Raw.Length; i++)
+        AppendUniqueMessage(Out, Raw[i]);
+
+    return Out;
+}
+
+/**
+ * Append Msg unless an equal (case-insensitive) non-empty line is already in
+ * List.  Caps() matches the case folding ExpandTokens applies to the banner.
+ */
+static function bool AppendUniqueMessage(out array<string> List, string Msg)
+{
+    local int i;
+    local string Key;
+
+    if (Msg == "")
+        return False;
+
+    Key = Caps(Msg);
+    for (i = 0; i < List.Length; i++)
+    {
+        if (Caps(List[i]) == Key)
+            return False;
+    }
+
+    List.Length = List.Length + 1;
+    List[List.Length - 1] = Msg;
+    return True;
+}
+
+/**
+ * Parse the string form of a dynamic string array produced by GetPropertyText:
+ *
+ *     ("first line","second line","third line")
+ *
+ * Array export uses quoted elements separated by ",".  A quote inside a line
+ * is not escaped by the exporter, so a literal "," inside a message would be
+ * ambiguous; the shipped feeds contain no such line.
+ */
+static function array<string> ParseMessagesText(string Text)
+{
+    local array<string> Out;
+    local string Item;
+    local int Pos;
+
+    if (Left(Text, 1) == "(")
+        Text = Mid(Text, 1);
+    if (Right(Text, 1) == ")")
+        Text = Left(Text, Len(Text) - 1);
+
+    while (Text != "")
+    {
+        if (Left(Text, 1) == "\"")
+            Text = Mid(Text, 1);
+
+        Pos = InStr(Text, "\",\"");
+        if (Pos < 0)
+        {
+            if (Right(Text, 1) == "\"")
+                Text = Left(Text, Len(Text) - 1);
+            Out.Length = Out.Length + 1;
+            Out[Out.Length - 1] = Text;
+            break;
+        }
+
+        Item = Left(Text, Pos);
+        Out.Length = Out.Length + 1;
+        Out[Out.Length - 1] = Item;
+        Text = Mid(Text, Pos + 3);
+    }
+
+    return Out;
 }
 
 // ---------------------------------------------------------------------------

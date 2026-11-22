@@ -114,7 +114,9 @@ FEED MESSAGES (TYPEWRITER BANNER)
 The bottom banner types random messages from a config array. The **server or
 host** reads MutTechDirector.ini and sends its message list to each Director's
 client, so joining players do not need the file. The copy shipped with this
-archive contains 155 tournament-feed messages.
+archive contains 222 tournament-feed messages. If the RespawnDelay mutator is
+also installed, its RespawnDelay.ini lines are merged in; exact duplicates are
+removed so no line appears twice.
 
 To customize messages, edit the [MutTechDirector.DirectorFeed] section of
 MutTechDirector.ini on the server/host:

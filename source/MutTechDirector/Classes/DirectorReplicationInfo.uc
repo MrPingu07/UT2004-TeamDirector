@@ -60,9 +60,13 @@ var Pawn TeamTurrets[16];
 /**
  * Server-configured broadcast feed, replicated to the owning client so a
  * joining player does not need a local MutTechDirector.ini.  The server reads
- * its own copy of the ini and every Director gets the same list.
+ * its own copy of the ini (plus the sibling RespawnDelay feed, when installed)
+ * and every Director gets the same merged list.
+ *
+ * 512 slots leave room for both inis after duplicate lines are removed
+ * (currently ~230 unique lines) without silently truncating custom entries.
  */
-var string FeedMessages[256];
+var string FeedMessages[512];
 var int FeedMessageCount;
 
 /** Server-configured cooldown ceiling per slot, replicated from the mutator. */
@@ -352,16 +356,20 @@ function CopyCooldownSettings(MutTechDirector M)
 }
 
 /**
- * Snapshot the server's MutTechDirector.ini feed into the replicated array.
+ * Snapshot the server's merged feed into the replicated array.
  * Clients display this list instead of reading their own ini; the server is
- * the single source of truth for the broadcast.
+ * the single source of truth for the broadcast.  The merged list is the
+ * MutTechDirector feed plus, when installed, RespawnDelay's feed, with exact
+ * duplicate lines removed by DirectorFeed.GetMergedFeedMessages().
  */
 function CopyFeedMessages()
 {
+    local array<string> Source;
     local int i;
     local int n;
 
-    n = class'DirectorFeed'.default.Messages.Length;
+    Source = class'DirectorFeed'.static.GetMergedFeedMessages();
+    n = Source.Length;
     if (n > ArrayCount(FeedMessages))
         n = ArrayCount(FeedMessages);
 
@@ -369,7 +377,7 @@ function CopyFeedMessages()
         FeedMessages[i] = "";
 
     for (i = 0; i < n; i++)
-        FeedMessages[i] = class'DirectorFeed'.default.Messages[i];
+        FeedMessages[i] = Source[i];
 
     FeedMessageCount = n;
     Log("MutTechDirector: replicated " $ n $ " feed messages to " $ DirectorPC);

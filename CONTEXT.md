@@ -18,7 +18,9 @@ Director**, with:
 - a temporary `DirectorHUD` that draws the score, clock and typewriter feed and
   suppresses the stock vehicle/beacon text;
 - a server-authored broadcast feed replicated to each Director, with live
-  match tokens and dynamic `$RANDOM<min>_<max>` values;
+  match tokens and dynamic `$RANDOM<min>_<max>` values; when RespawnDelay is
+  installed, its `RespawnDelay.ini` lines are merged in and exact duplicates
+  are removed;
 - combatant sentinel beacons with line-of-sight checks.
 
 Original specification: `prompt.txt`.
@@ -107,8 +109,9 @@ The build script handles this correctly.
   TeamMates counter/nameplates, native beacon suppression.
 - `DirectorHUD.uc` — booth-only HUD: typewriter banner, team score, match
   clock; suppresses native vehicle/beacon text.
-- `DirectorFeed.uc` — config-backed message array, token expansion, dynamic
-  `$RANDOM<min>_<max>` parser.
+- `DirectorFeed.uc` — config-backed message array, optional runtime merge with
+  RespawnDelay's feed (reflection, no compile dependency), token expansion,
+  dynamic `$RANDOM<min>_<max>` parser.
 - `DirectorBindKeyMessage.uc` — invisible LocalMessage whose client-side
   `ClientReceive` binds B -> `mutate director` (no PlayerController subclass).
 - `MutTechDirectorConfig.uc` — Configure Mutators submenu for the cooldowns

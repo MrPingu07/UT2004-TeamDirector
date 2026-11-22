@@ -153,8 +153,9 @@ simulated function DirectorReplicationInfo GetDirectorRI()
 
 /**
  * Picks a message from the server-replicated feed (DirectorReplicationInfo)
- * and expands its live-match tokens.  Falls back to the local
- * class'DirectorFeed'.default.Messages only if no replicated list is available.
+ * and expands its live-match tokens.  Falls back to the local merged feed
+ * (this mutator's ini plus RespawnDelay's, when installed) only if no
+ * replicated list is available.
  *
  * No message repeats until all have been shown. Empty entries are skipped.
  * Width is deliberately not filtered: token values vary in length, and the
@@ -164,25 +165,22 @@ simulated function DirectorReplicationInfo GetDirectorRI()
 simulated function string PickMessage()
 {
     local DirectorReplicationInfo DirRI;
+    local array<string> FallbackMessages;
     local int n, i, j, tmp, Tries;
     local string Msg;
     local bool bIsTeamGame;
 
     DirRI = GetDirectorRI();
     if (DirRI != None)
-        n = DirRI.FeedMessageCount;
-    else
-        n = 0;
-
-    if (n > 0)
     {
+        n = DirRI.FeedMessageCount;
         if (n > ArrayCount(DirRI.FeedMessages))
             n = ArrayCount(DirRI.FeedMessages);
     }
     else
     {
-        n = class'DirectorFeed'.default.Messages.Length;
-        DirRI = None;
+        FallbackMessages = class'DirectorFeed'.static.GetMergedFeedMessages();
+        n = FallbackMessages.Length;
     }
 
     if (n == 0)
@@ -216,15 +214,15 @@ simulated function string PickMessage()
         if (DirRI != None)
             Msg = DirRI.FeedMessages[i];
         else
-            Msg = class'DirectorFeed'.default.Messages[i];
+            Msg = FallbackMessages[i];
         if (Msg != "")
-    {
-        bIsTeamGame = (Level.GRI != None && Level.GRI.bTeamGame);
-        return class'DirectorFeed'.static.ExpandTokens(Msg, Level.Game.GameReplicationInfo, bIsTeamGame, Level);
+        {
+            bIsTeamGame = (Level.GRI != None && Level.GRI.bTeamGame);
+            return class'DirectorFeed'.static.ExpandTokens(Msg, Level.Game.GameReplicationInfo, bIsTeamGame, Level);
+        }
     }
-}
 
-return class'DirectorFeed'.static.ExpandTokens("TECHNICAL DIRECTOR MODE", None, false, Level);
+    return class'DirectorFeed'.static.ExpandTokens("TECHNICAL DIRECTOR MODE", None, false, Level);
 }
 
 /**

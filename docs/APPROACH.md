@@ -21,7 +21,7 @@
  │   • Cooldown1..9 + replicated MaxCooldowns[9] (ticked)       │
  │   • TeamAlive / TeamDead (0.5 s roster recount)              │
  │   • bHealing, heal accumulator, berserk timer                │
- │   • FeedMessages[256] + FeedMessageCount (server-authoritative feed) │
+ │   • FeedMessages[512] + FeedMessageCount (merged server feed) │
  │   • server RPC implementations + entry countdown             │
  │   • HUD swap RPCs: ClientActivateBooth / ClientCloseBooth    │
  └───────────────────────────┬──────────────────────────────────┘
@@ -98,9 +98,10 @@ The replicated per-player record and the server-to-client bridge. It owns:
 - berserk pawn and expiry timer;
 - auto-cycle timing after a feed loss;
 - client Interaction attach/detach;
-- server feed replication: `CopyFeedMessages()` reads the mutator's
-  `DirectorFeed` config array and replicates `FeedMessages[256]` +
-  `FeedMessageCount` to the Director's client;
+- server feed replication: `CopyFeedMessages()` reads the merged
+  `DirectorFeed` config array (own lines plus RespawnDelay's, when installed)
+  and replicates `FeedMessages[512]` + `FeedMessageCount` to the Director's
+  client;
 - `ServerCycleTarget`, `ServerSetHealing`, `ServerUseAbility`,
   `ServerLeaveDirector` RPCs;
 - `ClientSwitchSound` RPC;
@@ -674,7 +675,7 @@ viewer is in `Spectating` state (i.e., in the booth).
 - The RI is owner-only (`bOnlyRelevantToOwner=True`) and non-always-relevant.
 - The owning client gets `DirectorTeam`, `bDirectorActive`, `bHealing`,
   `CurrentTarget`, the nine cooldowns, `MaxCooldowns[9]`, `TeamAlive`,
-  `TeamDead`, `bBoothPending`, `EntryTimeLeft`, `FeedMessages[256]`,
+  `TeamDead`, `bBoothPending`, `EntryTimeLeft`, `FeedMessages[512]`,
   `FeedMessageCount`, `ClientSwitchSound`, `HealRate`, and HUD swap RPCs.
 - Server RPCs are declared in the `Role < ROLE_Authority` block and every
   implementation re-checks `Role`, `bDirectorActive` and references.
@@ -697,15 +698,19 @@ The server is the source of truth for the broadcast-feed message list.
 
 1. **Config read**: on the server/host, `MutTechDirector.ini` section
    `[MutTechDirector.DirectorFeed]` is read into `class'DirectorFeed'.default.Messages`.
-2. **Snapshot**: when a Director enters the booth (`BeginEntryCountdown`),
-   `DirectorReplicationInfo.CopyFeedMessages()` copies the array into the
-   fixed-size replicated `FeedMessages[256]` and `FeedMessageCount`.
-3. **Replication**: the array is replicated owner-only to the Director's
+   If RespawnDelay is installed, its `[RespawnDelay.RespawnDelayFeed]` lines are
+   appended (reflection via `DynamicLoadObject` + `GetPropertyText`; no compile
+   dependency).
+2. **Merge & deduplicate**: `DirectorFeed.GetMergedFeedMessages()` builds the
+   combined list, removing exact duplicate lines (case-insensitive comparison).
+3. **Snapshot**: when a Director enters the booth (`BeginEntryCountdown`),
+   `DirectorReplicationInfo.CopyFeedMessages()` copies the merged array into the
+   fixed-size replicated `FeedMessages[512]` and `FeedMessageCount`.
+4. **Replication**: the array is replicated owner-only to the Director's
    client.
-4. **Client selection**: `DirectorHUD.PickMessage()` prefers the replicated
+5. **Client selection**: `DirectorHUD.PickMessage()` prefers the replicated
    feed; if unavailable (standalone/instant action), it falls back to the local
-   `DirectorFeed` defaults; if that is also empty, it uses `TECHNICAL DIRECTOR
-   MODE`.
+   merged feed; if that is also empty, it uses `TECHNICAL DIRECTOR MODE`.
 5. **Shuffle bag**: `DirectorHUD` maintains a `FeedBag` array of indices.
    When `FeedBagSize` (the source message count) changes, the bag is reset.
    Every configured message is shown once before any repeats.

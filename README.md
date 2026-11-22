@@ -301,16 +301,22 @@ be made always-visible from script, so the custom plates replace them.
 ## Broadcast feed
 
 The bottom banner is an ambient, non-authoritative feed. The server reads
-`MutTechDirector.ini`, snapshots its list into `DirectorReplicationInfo`, and
-replicates it to each Director. The client then expands tokens from replicated
-match state and displays the result. Joining players therefore do **not** need
-the ini, and every Director sees the host's authored feed.
+`MutTechDirector.ini` plus, when the RespawnDelay mutator is installed, its
+`RespawnDelay.ini` feed. The two lists are merged with exact duplicate lines
+removed, snapshotted into `DirectorReplicationInfo`, and replicated to each
+Director. The client then expands tokens from replicated match state and
+displays the result. Joining players therefore do **not** need either ini, and
+every Director sees the host's authored feed.
 
-- **155 messages** ship in `install/MutTechDirector.ini` (the replicated array
-  caps at 256).
+- **222 messages** ship in `install/MutTechDirector.ini`; the merged feed is
+  currently ~232 unique lines (the replicated array caps at 512).
 - The section is `[MutTechDirector.DirectorFeed]`, using repeated bare
   `Messages=` keys; `Messages(0)=...` is the wrong format for a dynamic array
   and is silently ignored.
+- When RespawnDelay is installed, its `[RespawnDelay.RespawnDelayFeed]` lines
+  are appended. The merge uses `DynamicLoadObject`/`GetPropertyText`, so
+  MutTechDirector has no compile-time dependency on RespawnDelay. Exact
+  duplicate lines are removed before the shuffle bag is built.
 - A shuffle bag shows every message once before repeating. Empty entries are
   skipped; if every entry is empty, `TECHNICAL DIRECTOR MODE` is used.
 - Width is deliberately **not** filtered. Names are validated by the game, and
