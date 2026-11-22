@@ -290,8 +290,6 @@ simulated function DrawSpectatingHud(Canvas C)
     local Font FeedFont;
     
     Scale = C.ClipY / 768.0;
-    if (Scale < 1.0)
-        Scale = 1.0;
     
     //Resolve font
     HugeFont = GetFontSizeIndex(C, 0);
