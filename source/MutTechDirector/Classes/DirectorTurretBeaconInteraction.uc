@@ -78,6 +78,9 @@ event PostRender(Canvas C)
     local Pawn ViewportPawn;
     local Actor ViewportActor;
 
+    // Resolution-independent scaling (1024x768 as reference = scale 1.0)
+    local float Scale;
+
     Super.PostRender(C);
 
     Log("MutTechDirector: [BEACON-RENDER] PostRender entered C=" $ C);
@@ -169,14 +172,17 @@ event PostRender(Canvas C)
 
     Log("MutTechDirector: [BEACON-RENDER] rendering beacons for " $ LocalPC);
 
+    // Resolution-independent scale factor (1024x768 as reference = scale 1.0)
+    Scale = C.ClipY / 768.0;
+
     C.FontScaleX = 1.0;
     C.FontScaleY = 1.0;
     if (C.SmallFont != None)
         C.Font = C.SmallFont;
     C.StrLen("Mg", XL, YL);
-    if (YL < 10.0)
-        YL = 12.0;
-    LineH = YL + 2.0;
+    if (YL < 10.0 * Scale)
+        YL = 12.0 * Scale;
+    LineH = YL + 2.0 * Scale;
 
     C.GetCameraLocation(CamLoc, CamRot);
 

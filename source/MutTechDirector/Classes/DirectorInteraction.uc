@@ -378,7 +378,7 @@ function PostRender(Canvas C)
     local string PlateText;
     local int Pass;
 
-    // Resolution-independent scaling
+    // Resolution-independent scaling (1024x768 as reference = scale 1.0)
     local float Scale;
 
     if (RI == None || RI.bDeleteMe)
@@ -402,7 +402,7 @@ function PostRender(Canvas C)
     White.R = 235; White.G = 240; White.B = 250; White.A = 255;
     Dim.R = 165;   Dim.G = 175;   Dim.B = 185;  Dim.A = 255;
 
-    // Hotbar, cheatsheet, TeamMates use TinyFont
+    // Hotbar, cheatsheet, TeamMates use TinyFont - resolution independent
     if (C.TinyFont != None)
         C.Font = C.TinyFont;
     C.FontScaleX = 1.0;
