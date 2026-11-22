@@ -15,6 +15,9 @@ const FLICKER_STEP = 0.1666667;
 const BLINK_INTERVAL = 0.5;
 const TOTAL_CYCLE = 22.0;
 
+/** Maximum characters per banner line; longer messages wrap to the next line. */
+const FEED_WRAP_CHARS = 60;
+
 var transient float CycleStart;
 var transient float LastDrawTime;
 var transient string CurrentMessage;
@@ -254,9 +257,22 @@ simulated function DrawSpectatingHud(Canvas C)
     // Typewriter + cursor locals
     local float CycleElapsed, PhaseStart, PhaseTime;
     local int Phase, L, Shown, Start;
-    local float FullWidth, AnchorX, SliceX, CursorX, PH, Dummy;
+    local float CursorX, PH, Dummy;
     local bool CursorVisible;
     local byte OldStyle;
+
+    // Wrapped feed lines: centred as one block between the banner stripes.
+    local array<string> Lines;
+    local array<int> LineStarts;
+    local int NumLines, LineIdx, LineStart, LineEnd, SegStart, SegEnd;
+    local int CursorLine, CursorPos;
+    local int Pos, Remaining, LineLen, NextPos, ScanIdx;
+    local float TotalHeight, LineY, LineW, PrefixW;
+
+    // Text layout accounting for the Unreal Tournament logo on the left.
+    local float TextLeftMargin;   // X where text area starts (logo right edge)
+    local float TextAreaWidth;    // Usable width from logo edge to screen right
+    local float TextCenterX;      // Center of the text area
 
     // Team score counter locals
     local GameReplicationInfo GRI;
@@ -271,6 +287,7 @@ simulated function DrawSpectatingHud(Canvas C)
     // And set font
     local float Scale;
     local Font HugeFont;
+    local Font FeedFont;
     
     Scale = C.ClipY / 768.0;
     
@@ -368,6 +385,12 @@ simulated function DrawSpectatingHud(Canvas C)
         256, 128
     );
     C.Style = ERenderStyle.STY_Normal;
+
+    // Text area starts at the logo's right edge and extends to the screen's right edge.
+    // The feed is centered within this area, then shifted left by 50px for better visual balance.
+    TextLeftMargin = LogoX + LogoSize * 2.0;
+    TextAreaWidth = C.ClipX - TextLeftMargin;
+    TextCenterX = TextLeftMargin + TextAreaWidth * 0.5 - 50.0 * Scale;
     
     // Team score counter at top center (hidden during F1) - simple integers only
     MyHUD = PlayerOwner.myHUD;
@@ -447,16 +470,21 @@ simulated function DrawSpectatingHud(Canvas C)
     }
 
     // Typewriter + blinking cursor banner (centered, no horizontal motion)
-    if (HugeFont != None)
+    // Use a fixed base font and scale it with the screen, rather than the
+    // resolution-aware HUD font ladder: the feed keeps the same size relative
+    // to the banner at every resolution instead of shrinking as the screen
+    // grows past the largest font breakpoint.
+    FeedFont = Font(DynamicLoadObject("UT2003Fonts.FontEurostile17", class'Font'));
+    if (FeedFont == None)
+        FeedFont = HugeFont;
+    if (FeedFont != None)
     {
-        C.Font = HugeFont;
+        C.Font = FeedFont;
     }
-    C.FontScaleX = 0.8;
-    C.FontScaleY = 0.8;
+    C.FontScaleX = 0.8 * Scale;
+    C.FontScaleY = 0.8 * Scale;
 
-    // Center text vertically in banner
-    C.StrLen("X", Dummy, PH);  // PH = scaled line height
-    TextYPos = BannerY + (BannerHeight - PH) * 0.5;
+    C.StrLen("X", Dummy, PH);
 
     CycleElapsed = Level.TimeSeconds - CycleStart;
     if (CurrentMessage == "" || CycleElapsed >= TOTAL_CYCLE
@@ -472,15 +500,72 @@ simulated function DrawSpectatingHud(Canvas C)
     PhaseTime = FMax(0.0, CycleElapsed - PhaseStart);
     CursorVisible = GetCursorVisible(PhaseTime, Phase);
 
-    if (HugeFont != None)
-    {
-        C.Font = HugeFont;
-    }
-    C.FontScaleX = 0.8;
-    C.FontScaleY = 0.8;
-    C.StrLen(CurrentMessage, FullWidth, PH);
-    AnchorX = (C.ClipX - FullWidth) * 0.5;
     L = Len(CurrentMessage);
+
+    // Word-wrap the feed at the last space at or before FEED_WRAP_CHARS, so
+    // words stay intact.  A single word longer than the limit falls back to a
+    // hard break.  LineStarts keeps the original string offsets so the
+    // typewriter phase still reveals characters in place.
+    Lines.Length = 0;
+    LineStarts.Length = 0;
+    Pos = 0;
+    while (Pos < L)
+    {
+        // A wrapped line never begins with the spaces that caused the break.
+        while (Pos < L && Mid(CurrentMessage, Pos, 1) == " ")
+            Pos++;
+        if (Pos >= L)
+            break;
+
+        Remaining = L - Pos;
+        if (Remaining <= FEED_WRAP_CHARS)
+        {
+            LineLen = Remaining;
+            NextPos = L;
+        }
+        else
+        {
+            ScanIdx = -1;
+            for (LineIdx = Pos + FEED_WRAP_CHARS - 1; LineIdx >= Pos; LineIdx--)
+            {
+                if (Mid(CurrentMessage, LineIdx, 1) == " ")
+                {
+                    ScanIdx = LineIdx;
+                    break;
+                }
+            }
+
+            if (ScanIdx > Pos)
+            {
+                LineLen = ScanIdx - Pos;
+                NextPos = ScanIdx + 1;
+            }
+            else
+            {
+                // No usable space: break the over-long word at the limit.
+                LineLen = FEED_WRAP_CHARS;
+                NextPos = Pos + FEED_WRAP_CHARS;
+            }
+        }
+
+        Lines.Length = Lines.Length + 1;
+        LineStarts.Length = LineStarts.Length + 1;
+        Lines[Lines.Length - 1] = Mid(CurrentMessage, Pos, LineLen);
+        LineStarts[LineStarts.Length - 1] = Pos;
+        Pos = NextPos;
+    }
+
+    if (Lines.Length < 1)
+    {
+        Lines.Length = 1;
+        LineStarts.Length = 1;
+        Lines[0] = "";
+        LineStarts[0] = 0;
+    }
+    NumLines = Lines.Length;
+
+    TotalHeight = NumLines * PH;
+    TextYPos = BannerY + (BannerHeight - TotalHeight) * 0.5;
 
     if (Phase == 2)
         Shown = Min(L, int(PhaseTime * L));
@@ -492,38 +577,79 @@ simulated function DrawSpectatingHud(Canvas C)
         Shown = 0;
     Start = (L - Shown) / 2;
 
-    if (Shown > 0)
+    for (LineIdx = 0; LineIdx < NumLines; LineIdx++)
     {
-        if (HugeFont != None)
+        LineStart = LineStarts[LineIdx];
+        LineEnd = LineStart + Len(Lines[LineIdx]);
+        LineY = TextYPos + LineIdx * PH;
+
+        // Portion of this line inside the centre-out reveal window.
+        SegStart = Max(Start, LineStart);
+        SegEnd = Min(Start + Shown, LineEnd);
+        if (SegEnd > SegStart)
         {
-            C.Font = HugeFont;
+            C.StrLen(Lines[LineIdx], LineW, Dummy);
+            LineW = TextCenterX - LineW * 0.5;
+            C.StrLen(Left(Lines[LineIdx], SegStart - LineStart), PrefixW, Dummy);
+            C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
+            C.SetPos(LineW + PrefixW, LineY);
+            C.DrawText(Mid(CurrentMessage, SegStart, SegEnd - SegStart), false);
         }
-        C.FontScaleX = 0.8;
-        C.FontScaleY = 0.8;
-        C.StrLen(Left(CurrentMessage, Start), SliceX, Dummy);
-        SliceX += AnchorX;
-        C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
-        C.SetPos(SliceX, TextYPos);
-        C.DrawText(Mid(CurrentMessage, Start, Shown), false);
     }
 
     if (CursorVisible)
     {
-        if (HugeFont != None)
+        CursorPos = Start + Shown;
+
+        // At a line boundary the cursor belongs to the end of the line just
+        // revealed; when nothing is revealed it marks the next character.
+        CursorLine = -1;
+        for (LineIdx = 0; LineIdx < NumLines; LineIdx++)
         {
-            C.Font = HugeFont;
+            LineStart = LineStarts[LineIdx];
+            LineEnd = LineStart + Len(Lines[LineIdx]);
+            if (Shown > 0)
+            {
+                if (CursorPos <= LineEnd)
+                {
+                    CursorLine = LineIdx;
+                    break;
+                }
+            }
+            else if (CursorPos < LineEnd)
+            {
+                CursorLine = LineIdx;
+                break;
+            }
         }
-        C.FontScaleX = 0.8;
-        C.FontScaleY = 0.8;
-        C.StrLen(Left(CurrentMessage, Start + Shown), CursorX, Dummy);
-        CursorX += AnchorX;
+        if (CursorLine < 0)
+            CursorLine = NumLines - 1;
+
+        LineStart = LineStarts[CursorLine];
+        LineEnd = LineStart + Len(Lines[CursorLine]);
+        LineY = TextYPos + CursorLine * PH;
+        SegStart = CursorPos - LineStart;
+        if (SegStart < 0)
+            SegStart = 0;
+        if (SegStart > LineEnd - LineStart)
+            SegStart = LineEnd - LineStart;
+
+        C.StrLen(Lines[CursorLine], LineW, Dummy);
+        LineW = TextCenterX - LineW * 0.5;
+        C.StrLen(Left(Lines[CursorLine], SegStart), PrefixW, Dummy);
+        CursorX = LineW + PrefixW;
+
         OldStyle = C.Style;
         C.Style = ERenderStyle.STY_Alpha;
         C.SetDrawColor(TeamColor.R, TeamColor.G, TeamColor.B, 255);
-        C.SetPos(CursorX, TextYPos);
+        C.SetPos(CursorX, LineY);
         C.DrawTileStretched(material'InterfaceContent.SquareBoxA', 8.0 * Scale, PH);
         C.Style = OldStyle;
     }
+
+    // Restore default scale so later HUD draws are unaffected
+    C.FontScaleX = 1.0;
+    C.FontScaleY = 1.0;
 }
 
 defaultproperties

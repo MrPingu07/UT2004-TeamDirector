@@ -123,13 +123,19 @@ in the booth. It draws:
   hidden during F1.
 - A centred typewriter feed inside the banner with explicit per-block font and
   scale state so shared `Canvas` properties from other HUD passes do not cause
-  size oscillations.
+  size oscillations. Messages word-wrap at the last space before the
+  60-character limit; the whole line block is centred vertically between the
+  banner stripes, and each line is centred in the text area right of the Unreal
+  logo (shifted 50px left for visual balance).
   22-second cycle: flicker, blink, type, blink, hold, flicker, blink, delete,
   blink, rest. New message chosen at cycle end or after a >0.5 s drawing gap.
   Tokens expanded once per message via `DirectorFeed.ExpandTokens()`.
 - Resolves `HugeFont` (`GetFontSizeIndex(C, 0)` with fallback to
-  `UT2003Fonts.FontEurostile37`) and explicitly sets `C.Font`, `C.FontScaleX`,
-  and `C.FontScaleY` before every `StrLen` / `DrawText` block.
+  `UT2003Fonts.FontEurostile37`) for score/clock. The feed uses fixed
+  `FontEurostile17` scaled by `0.8 * (C.ClipY / 768.0)` rather than the
+  resolution-aware ladder, keeping the feed the same size relative to the
+  banner at every resolution. Explicitly sets `C.Font`, `C.FontScaleX`, and
+  `C.FontScaleY` before every `StrLen` / `DrawText` block.
 - Suppresses native vehicle name drawing (`DrawVehicleName`), native team
   beacon drawing (`DrawCustomBeacon`), crosshair (`DrawCrosshair`), and stock
   message text (`DrawMessage`).

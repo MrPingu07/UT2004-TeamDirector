@@ -143,17 +143,19 @@ A new message is selected when the 22-second cycle completes, or after a
 longer-than-0.5-second drawing gap (pause, menu, map load), which also prevents
 stale text after returning to the HUD.
 
-### 4.3 Width filtering: none
+### 4.3 Word-wrapping and layout
 
-Earlier builds skipped messages wider than 90 % of the canvas. That check was
-removed by design:
-
-- The server/game already validates player names.
-- Dynamic tokens make the final width different from the template width.
-- A long name should not silently remove a message from the rotation.
-
-The banner is centred and Canvas-clipped; an extreme name may reach the screen
-edges, but the message still runs.
+Messages longer than `FEED_WRAP_CHARS` (60) are word-wrapped into additional
+lines. The break is the last space at or before the 60-character limit, so a
+word is never split; only a single word longer than the limit falls back to a
+hard break. The limit was reduced from 70 because the Unreal Tournament logo on
+the left occupies horizontal space; the text area starts at the logo's right
+edge and extends to the screen's right edge. The complete line block is measured
+first, then centred vertically between the top and bottom stripes, so a
+two-line message sits in the middle of the band rather than being anchored to
+one edge. Each line is centred horizontally **within the text area** (right of
+the logo, shifted left by 50px for visual balance), and the typewriter reveal
+and delete phases operate on the wrapped layout in place.
 
 ### 4.4 Colours and special characters
 
